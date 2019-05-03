@@ -1,5 +1,5 @@
-# ignore data directories
-*data
+# ignore data files
+*.h5
 
 # ignore zip files
 *.zip
