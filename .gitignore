@@ -8,3 +8,5 @@
 *.pyc
 *__pycache__
 
+# ignore downloaded online resource
+*opensource_code
