@@ -1,0 +1,10 @@
+# ignore data directories
+*data
+
+# ignore zip files
+*.zip
+
+# ignore python compile
+*.pyc
+*__pycache__
+
