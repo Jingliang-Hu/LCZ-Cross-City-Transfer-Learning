@@ -1,0 +1,13 @@
+# step 1
+To start, source the file 'config' to activate a conda env for development
+
+user@server:/<directory to git local repo>/TF$ source config ENVNAME
+-->
+(ENVNAME)user@server:/<directory to git local repo>/TF$ 
+
+
+
+
+
+
+

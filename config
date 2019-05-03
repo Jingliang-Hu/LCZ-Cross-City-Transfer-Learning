@@ -1,1 +1,11 @@
-source activate tf
+# add anaconda bin to environment path
+export PATH=/home/hu/software/anaconda3.7/bin:$PATH
+
+# activate a conda env 'meanteather' for development
+source activate meanteather
+
+# deactivate env
+# conda deactivate
+
+
+
