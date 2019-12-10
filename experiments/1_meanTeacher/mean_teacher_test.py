@@ -71,6 +71,18 @@ if subtract_pixel_mean:
     x_train -= x_train_mean
     x_test -= x_train_mean
 
+
+# mix training and testing data for semi-supvision training, reproducable random mixing
+x_train = np.concatenate((x_train,x_test),axis=0)
+y_train = np.concatenate((y_train,np.zero(y_test.shape,y_test.dtype)),axis=0)
+
+np.random.seed(0)
+numSeed = np.random.rand(x_train.shape[0])
+idx = np.argsort(numSeed)
+x_train = x_train[idx]
+y_train = y_train[idx]
+
+
 # convert numpy to pytorch float tensor
 x_train = torch.from_numpy(x_train).type('torch.FloatTensor')
 y_train = torch.from_numpy(y_train).type('torch.LongTensor')
@@ -84,6 +96,7 @@ print('x_train shape:', x_train.shape)
 print(x_train.shape[0], 'train samples')
 print(x_test.shape[0], 'test samples')
 print('y_train shape:', y_train.shape)
+
 
 
 '''
@@ -113,7 +126,7 @@ import modelOperation
 
 print('Start training ...')
 
-student,teacher,traSLoss,traSArry,valSLoss,valSArry,traTLoss,traTArry,valTLoss,valTArry = modelOperation.meanTeacher_Train(student,teacher,cudaNow,x_train,y_train,optimizer,numBatch=nbBatch,numEpoch=nbEpoch,valDat=x_test,valLab=y_test,classification_loss,consistency_loss,lrChg=False,earlyStop=False)
+student,teacher,traSLoss,traSArry,valSLoss,valSArry,traTLoss,traTArry,valTLoss,valTArry = modelOperation.meanTeacher_Train(student,teacher,cudaNow,x_train,y_train,optimizer,valDat=x_test,valLab=y_test,classification_loss,consistency_loss,numBatch=nbBatch,numEpoch=nbEpoch)
 
 
 '''
