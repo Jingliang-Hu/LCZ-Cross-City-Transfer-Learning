@@ -15,7 +15,7 @@ def load_Semi_Test_City(envPath, cityName, datFlag=0):
 
 
     # get the directory to h5 data file
-    datFile = envPath+'/data_semi/test/'+cityName+'.h5'
+    datFile = envPath+'/data/test/'+cityName+'.h5'
     if not os.path.isfile(datFile):
         print('ERROR: File '+cityName+'.h5 does not exist!')
     return 0
@@ -62,7 +62,7 @@ def load_Semi_Test(envPath, datFlag=0):
     coord = []
 
     # get the directory to h5 data file
-    datDir = envPath+'/data_semi/test'
+    datDir = envPath+'/data/test'
     h5Files = glob.glob(datDir+'/*.h5')
 
     # load data of 10 cities
@@ -117,7 +117,7 @@ def load_Semi_Train(envPath,datFlag=0):
     #                     1: sentinel-1 data
     #                     2: sentinel-2 data
     # this function load the test data of all the cultural-10 cities. data of those cities are stored in '/data/hu/so2sat_CNN/student_model/data_semi/test'
-    datDir = envPath + '/data_semi/train/train.h5'
+    datDir = envPath + '/data/train/train.h5'
     fid = h5py.File(datDir,'r')
 
     if datFlag==0:
