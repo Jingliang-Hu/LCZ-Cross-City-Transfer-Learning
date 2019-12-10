@@ -124,5 +124,106 @@ def train(model,device,optimizer,traDat,traLab,criterion = nn.CrossEntropyLoss()
 
 
 
+def meanTeacher_Train(student,teacher,cudaNow,x,y,optimizer,numBatch=nbBatch,numEpoch=nbEpoch,valDat,valLab,classification_loss,consistency_loss,lrChg=False,earlyStop=False):
+    student.train()
+    teacher.train()
+    # initialize outputs
+    traTLoss = np.zeros((numEpoch))
+    traTArry = np.zeros((numEpoch))
+    valTLoss = np.zeros((numEpoch))
+    valTArry = np.zeros((numEpoch))
+
+    traSLoss = np.zeros((numEpoch))
+    traSArry = np.zeros((numEpoch))
+    valSLoss = np.zeros((numEpoch))
+    valSArry = np.zeros((numEpoch))
+
+
+    # training
+    for epoch in range(numEpoch):
+        running_loss_t = 0.0
+        running_loss_s = 0.0
+        correct_t = 0.0
+        correct_s = 0.0
+        for t in tqdm(range(np.int(np.ceil(traDat.shape[0]/numBatch)))):
+            # zero the parameter gradients for each minibatch
+            optimizer.zero_grad()
+
+            # batch organization
+            if t == np.int(np.floor(traDat.shape[0]/numBatch)):
+                idx = np.arange(t*numBatch,traDat.shape[0])
+            else:
+                idx = np.arange(t*numBatch,(t+1)*numBatch)
+            inDat = traDat[idx,:,:,:].cuda(device)
+            inLab = traLab[idx].cuda(device)
+
+            # forward
+            outputs_s = student(inDat)
+            outputs_t = teacher(inDat)
+
+            # losses
+            # classification_loss = nn.CrossEntropyLoss()
+            # consistency_loss = nn.MSELoss()
+            classLoss = classification_loss(outputs_s,inLab)
+            consisLoss = consistency_loss(outputs_s,outputs_t)
+            loss = classLoss + consisLoss
+
+            # backward
+            loss.backward()
+            # optimize
+            # optimizer = optim.SGD(student.parameters(), lr=learnRate, momentum=momentum)
+            optimizer.step()
+
+            # training loss and accuracy
+            teacherError = classification_loss(outputs_t,inLab)
+
+            running_loss_s += classLoss.item()
+            running_loss_t += teacherError.item()
+
+            _, predicted_s = torch.max(outputs_s.data, 1)
+            _, predicted_t = torch.max(outputs_t.data, 1)
+
+            correct_s += predicted_s.eq(inLab).sum().item()
+            correct_t += predicted_t.eq(inLab).sum().item()
+
+            # update teacher model
+            alpha=0.99
+            alpha = min(1 - 1 / (epoch + 1), alpha)
+            for teacher_param, student_param in zip(teacher.parameters(), student.parameters()):
+                teacher.data.mul_(alpha).add_(1 - alpha, student.data)
+
+
+
+
+        # training loss and accuracy
+        traSLoss[epoch] = running_loss_s/np.ceil(traDat.shape[0]/numBatch)
+        traTLoss[epoch] = running_loss_t/np.ceil(traDat.shape[0]/numBatch)
+
+        traSArry[epoch] = correct_s/traDat.shape[0]*100
+        traTArry[epoch] = correct_t/traDat.shape[0]*100
+
+        # validation loss and accuracy
+        _, valSLoss[epoch], valSArry[epoch] = test(student,device,valDat,valLab,classification_loss,512)
+        _, valTLoss[epoch], valTArry[epoch] = test(teacher,device,valDat,valLab,classification_loss,512)
+
+        # print
+        print('Epoch %d:' % (epoch+1))
+        print('Student model: training loss: %.4f; training acc: %.2f; validation loss: %.4f; validation acc: %.2f' % (traSLoss[epoch], traSArry[epoch],valSLoss[epoch],valSArry[epoch]))
+        print('Teacher model: training loss: %.4f; training acc: %.2f; validation loss: %.4f; validation acc: %.2f' % (traTLoss[epoch], traTArry[epoch],valTLoss[epoch],valTArry[epoch]))
+
+
+    print(' --- training done --- ')
+    return student,teacher,traSLoss,traSArry,valSLoss,valSArry,traTLoss,traTArry,valTLoss,valTArry
+
+
+
+
+
+
+
+
+
+
+
 
 
