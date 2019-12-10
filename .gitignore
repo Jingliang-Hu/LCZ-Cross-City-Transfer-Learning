@@ -10,3 +10,7 @@
 
 # ignore downloaded online resource
 *opensource_code
+
+# ignore backups
+backups
+
