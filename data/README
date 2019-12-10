@@ -1,0 +1,31 @@
+Author: Jingliang Hu
+
+The training data is a copy of the So2Sat LCZ42 training data that is converted from float64 to float32. Original data file is stored in the directory:
+'so2sat sever' /datastore/DATA/classification/TIANCHI_DATASET/internal_v2/training/train_shuffle.h5
+
+
+The test data are re-organized from the cultural-10 data in directory '/data/hu/so2sat_CNN/student_model/data' which is originally from the TIANCHI data set.
+Original files are stored in the directory: 'so2sat sever' /datastore/DATA/classification/TIANCHI_DATASET/internal_v1/cultural_10/2_cityBalance
+
+
+
+##############################
+sample statistics
+
+
+
+#----------------------------------------------
+Cultural-10 cities
+#----------------------------------------------
+sanfrancisco		46    50   556     1    13   130     0   437    67    87   272 85    15    30    67     1   556 
+sydney        		18    24   425     1     2   415     2   274   367    18   305 80     0    49     4     2   425 
+nairobi        		19    84   183     0     0   541   223   361   185    28   232  4   540     0     0     9     2 
+munich         		 0   167     3    12   179   386     0   362    69    31   386 24    17   386     4     0   386 
+moscow        		 0   164     6   428   213    58     6   166   204   114   406 33     1   428     6     8   170 
+santiago         	94    17   301    16    26    97     0   167   494    11    14 24   429   438    42   243     0 
+mumbai         		14   217    33   165   173     9   140   186   316   122   316 21    24   316    27    18   316 
+guangzhou         	10   162    99   157   112    79    52   553     1   325   158 14     0   313     0     4   374 
+tehran         		31   366   160    64    34   143     0   378    70    72     1 75   176   378    49   378    36 
+jakarta        		24     3   587     5     5    48    51   511   141    52   197 22     0   409     3     9   344.]
+#----------------------------------------------
+

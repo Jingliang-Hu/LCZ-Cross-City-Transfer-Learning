@@ -97,7 +97,38 @@ class dataReader:
         trainM,labelM = self.loadData(fid)
         return trainM,labelM
 
+    def miniBatchRandomIndex(self,datArr,nbSample):
+        # randomly return an index, with which a mini-batch of given number of samples (nbSample) can be picked out
+        order = np.argsort(np.random.randn(datArr.shape[0]))
+        index = order[:nbSample]
+        return index
+
+    def oneHotEncoding(self,lab,numCls):
+        if len(np.squeeze(lab).shape) != 1:
+           print('can not one hot encoding, not scalar label')
+           return 1
+        if np.max(np.squeeze(lab))>numCls:
+           print('The max coding number in lab is larger than the given number of classes')
+           print('reset lab or maxCls')
+           print('the scalar class coding has to be set sequantially from zero to the number of classes')
+           return 1
+        oneHotLab = np.zeros((np.squeeze(lab).shape[0],numCls))
+        for cv_cls in range(0,numCls):
+            oneHotLab[lab==cv_cls,cv_cls] = 1
+        return oneHotLab
+
+
+
     def randomSplit(self,dat,lab):
+        dat = np.array(dat)
+        lab = np.array(lab)
+        # check lab is one-hot or not, if not, change it to one-hot
+        notOnehot = False
+        if len(np.squeeze(lab).shape) == 1: # not in one-hot format
+            notOnehot = True
+            numCls = 17
+            lab = self.oneHotEncoding(lab,numCls)
+
 	# reproductive random spliting for the benchmark cross validation
         for cv_cla in range(0,lab.shape[1]):
             idx = np.squeeze(np.array(np.where(lab[:,cv_cla] == 1)))
@@ -122,6 +153,10 @@ class dataReader:
                 lab_te = np.concatenate((lab_te,lab[idx[order[nbTr:]]]),axis=0)
                 dat_te = np.concatenate((dat_te,dat[idx[order[nbTr:]]]),axis=0)
 
+        # if input lab is not onehot, the output should also not be onehot
+        if notOnehot:
+            lab_tr = np.argmax(lab_tr,axis=1)
+            lab_te = np.argmax(lab_te,axis=1)
         return dat_tr,lab_tr,dat_te,lab_te
 
 
