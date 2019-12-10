@@ -14,3 +14,7 @@
 # ignore backups
 backups
 
+# ignore saved trained models and training history
+trained_models
+
+
