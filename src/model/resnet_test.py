@@ -2,7 +2,14 @@
 
 import sys
 import os
-envPath = '/data/hu/TF'
+
+fid = open("../../.envPath","r")
+envPath = fid.readline()
+envPath = envPath[:-1]
+fid.close
+del fid
+
+
 sys.path.append(os.path.abspath(envPath+"/src/io"))
 
 from load_Cul10_Semi import *

@@ -7,6 +7,7 @@
 # ignore python compile
 *.pyc
 *__pycache__
+*.py.swp
 
 # ignore downloaded online resource
 *opensource_code
