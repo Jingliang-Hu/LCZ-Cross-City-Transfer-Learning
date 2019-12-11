@@ -8,6 +8,8 @@ envPath = fid.readline()
 envPath = envPath[:-1]
 fid.close
 del fid
+print("EnvPath:"+envPath)
+
 
 sys.path.append(os.path.abspath(envPath+"/src/io"))
 
@@ -21,9 +23,9 @@ import h5py
 PARAMETER SETTING
 '''
 print("parameter setting...")
-cudaNow = torch.device('cuda:0')
+cudaNow = torch.device('cuda:4')
 nbBatch = 256
-nbEpoch = 2
+nbEpoch = 200
 learnRate = 1e-4
 momentum = 0.9
 datFlag = 2
@@ -74,7 +76,7 @@ if subtract_pixel_mean:
 
 # mix training and testing data for semi-supvision training, reproducable random mixing
 x_train = np.concatenate((x_train,x_test),axis=0)
-y_train = np.concatenate((y_train,np.zero(y_test.shape,y_test.dtype)),axis=0)
+y_train = np.concatenate((y_train,np.zeros(y_test.shape,y_test.dtype)),axis=0)
 
 np.random.seed(0)
 numSeed = np.random.rand(x_train.shape[0])
@@ -126,7 +128,7 @@ import modelOperation
 
 print('Start training ...')
 
-student,teacher,traSLoss,traSArry,valSLoss,valSArry,traTLoss,traTArry,valTLoss,valTArry = modelOperation.meanTeacher_Train(student,teacher,cudaNow,x_train,y_train,optimizer,valDat=x_test,valLab=y_test,classification_loss,consistency_loss,numBatch=nbBatch,numEpoch=nbEpoch)
+student,teacher,traSLoss,traSArry,valSLoss,valSArry,traTLoss,traTArry,valTLoss,valTArry = modelOperation.meanTeacher_Train(student,teacher,cudaNow,x_train,y_train,optimizer,x_test,y_test,classification_loss,consistency_loss,nbBatch,nbEpoch)
 
 
 '''

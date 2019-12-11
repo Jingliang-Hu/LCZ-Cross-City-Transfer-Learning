@@ -124,7 +124,7 @@ def train(model,device,optimizer,traDat,traLab,criterion = nn.CrossEntropyLoss()
 
 
 
-def meanTeacher_Train(student,teacher,cudaNow,x,y,optimizer,valDat,valLab,classification_loss,consistency_loss,numBatch=nbBatch,numEpoch=nbEpoch):
+def meanTeacher_Train(student,teacher,device,traDat,traLab,optimizer,valDat,valLab,classification_loss,consistency_loss,numBatch,numEpoch):
     student.train()
     teacher.train()
     # initialize outputs
@@ -162,12 +162,12 @@ def meanTeacher_Train(student,teacher,cudaNow,x,y,optimizer,valDat,valLab,classi
             outputs_t = teacher(inDat)
 
             # mask for training data that have labels
-            labIdx = torch.sum(inLab,axis=1)>0
+            labIdx = inLab>0
 
             # losses
             # classification_loss = nn.CrossEntropyLoss()
             # consistency_loss = nn.MSELoss()
-            classLoss = classification_loss(outputs_s[labIdx,:],inLab[labIdx,:])
+            classLoss = classification_loss(outputs_s[labIdx,:],inLab[labIdx])
             consisLoss = consistency_loss(outputs_s,outputs_t)
             loss = classLoss + consisLoss
 
@@ -178,7 +178,7 @@ def meanTeacher_Train(student,teacher,cudaNow,x,y,optimizer,valDat,valLab,classi
             optimizer.step()
 
             # training loss and accuracy
-            teacherError = classification_loss(outputs_t[labIdx,:],inLab[labIdx,:])
+            teacherError = classification_loss(outputs_t[labIdx,:],inLab[labIdx])
 
             running_loss_s += classLoss.item()
             running_loss_t += teacherError.item()
@@ -186,14 +186,14 @@ def meanTeacher_Train(student,teacher,cudaNow,x,y,optimizer,valDat,valLab,classi
             _, predicted_s = torch.max(outputs_s.data[labIdx,:], 1)
             _, predicted_t = torch.max(outputs_t.data[labIdx,:], 1)
 
-            correct_s += predicted_s.eq(inLab[labIdx,:]).sum().item()
-            correct_t += predicted_t.eq(inLab[labIdx,:]).sum().item()
+            correct_s += predicted_s.eq(inLab[labIdx]).sum().item()
+            correct_t += predicted_t.eq(inLab[labIdx]).sum().item()
 
             # update teacher model
             alpha=0.99
             alpha = min(1 - 1 / (epoch + 1), alpha)
             for teacher_param, student_param in zip(teacher.parameters(), student.parameters()):
-                teacher.data.mul_(alpha).add_(1 - alpha, student.data)
+                teacher_param.data.mul_(alpha).add_(1 - alpha, student_param.data)
 
 
 
