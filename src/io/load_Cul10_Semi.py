@@ -18,9 +18,9 @@ def load_Semi_Test_City(envPath, cityName, datFlag=0):
     datFile = envPath+'/data/test/'+cityName+'.h5'
     if not os.path.isfile(datFile):
         print('ERROR: File '+cityName+'.h5 does not exist!')
-    return 0
+        return 0
 
-    fid = h5py.file(datFile,'r')
+    fid = h5py.File(datFile,'r')
     if datFlag==0:
         x_test_1 = np.array(fid['x_1']).astype('float32')
         x_test_2 = np.array(fid['x_2']).astype('float32')
@@ -35,12 +35,10 @@ def load_Semi_Test_City(envPath, cityName, datFlag=0):
         x_test_1 = 0
         x_test_2 = np.array(fid['x_2']).astype('float32')
         x_test_2 = np.transpose(x_test_2,(0,3,1,2))
-
     y_test = np.array(fid['y']).astype('uint8')
     coord = np.array(fid['coord']).astype('float32')
     fid.close()
     del fid
-
     # re-organize dimension for pytorch [nb_of_samples, nb_of_channels, width, height]
     # x_test_1 = np.transpose(x_test_1,(0,3,1,2))
     # x_test_2 = np.transpose(x_test_2,(0,3,1,2))
