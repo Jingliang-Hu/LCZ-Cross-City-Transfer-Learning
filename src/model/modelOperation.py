@@ -8,6 +8,14 @@ import numpy as np
 from tqdm import tqdm
 
 
+def weightOfConsistentLoss(currentEpoch, maxEpoch):
+    '''
+    This function changes the weight of consistent loss for mean teacher model
+    '''
+    tmp = np.clip(currentEpoch,0,maxEpoch)
+    return np.exp(-5*np.square(1-np.float(tmp)/np.float(maxEpoch)))
+
+
 def test(model,device,dat,lab,criterion = nn.CrossEntropyLoss(),numBatch=64):
     '''
     Input:
@@ -124,7 +132,7 @@ def train(model,device,optimizer,traDat,traLab,criterion = nn.CrossEntropyLoss()
 
 
 
-def meanTeacher_Train(student,teacher,device,traDat,traLab,optimizer,valDat,valLab,classification_loss,consistency_loss,numBatch,numEpoch):
+def meanTeacher_Train(student,teacher,device,traDat,traLab,optimizer,valDat,valLab,classification_loss,consistency_loss,numBatch,numEpoch,upperEpoch=80):
     student.train()
     teacher.train()
     # initialize outputs
@@ -169,7 +177,9 @@ def meanTeacher_Train(student,teacher,device,traDat,traLab,optimizer,valDat,valL
             # consistency_loss = nn.MSELoss()
             classLoss = classification_loss(outputs_s[labIdx,:],inLab[labIdx])
             consisLoss = consistency_loss(outputs_s,outputs_t)
-            loss = classLoss + consisLoss
+
+            consistLossWeight = weightOfConsistentLoss(epoch, upperEpoch)
+            loss = classLoss + consistLossWeight*consisLoss
 
             # backward
             loss.backward()
