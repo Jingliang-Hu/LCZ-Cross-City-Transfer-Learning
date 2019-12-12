@@ -353,7 +353,7 @@ def domainMeanTeacher_Train(student,teacher,device,traDat,traLab,optimizer,valDa
             optimizer.step()
             # update weights in teacher
             for teacher_param, student_param in zip(teacher.parameters(), student.parameters()):
-                teacher_param.data.mul_(alpha).add_(1 - alpha, student_param.data)
+                teacher_param.data.mul_(alpha[epoch]).add_(1 - alpha[epoch], student_param.data)
 
             # losses for recording the training
             classTeaLoss = classification_loss(teacher_out_source,sourceLab)
