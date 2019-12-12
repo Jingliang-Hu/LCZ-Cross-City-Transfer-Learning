@@ -255,7 +255,7 @@ def meanTeacher_Train(student,teacher,device,traDat,traLab,optimizer,valDat,valL
 
 
 
-del meanTeacherDomain_Train(student,teacher,device,traDat,traLab,optimizer,valDat,valLab,classification_loss,consistency_loss,numBatch,numEpoch,alpha,upperEpoch=80):
+def meanTeacherDomain_Train(student,teacher,device,traDat,traLab,optimizer,valDat,valLab,classification_loss,consistency_loss,numBatch,numEpoch,alpha,upperEpoch=80):
     #
     student.train()
     teacher.train()
