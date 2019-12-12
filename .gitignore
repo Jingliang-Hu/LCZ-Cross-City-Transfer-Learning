@@ -19,3 +19,4 @@ backups
 trained_models
 
 .envPath
+*.png

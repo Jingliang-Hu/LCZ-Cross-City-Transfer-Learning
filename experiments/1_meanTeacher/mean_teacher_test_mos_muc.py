@@ -2,12 +2,17 @@
 
 import sys
 import os
+
 fid = open("../../.envPath","r")
 envPath = fid.readline()
 envPath = envPath[:-1]
 fid.close
 del fid
+print("EnvPath:"+envPath)
+
+
 sys.path.append(os.path.abspath(envPath+"/src/io"))
+
 
 from load_Cul10_Semi import *
 import torch
@@ -18,16 +23,22 @@ import h5py
 PARAMETER SETTING
 '''
 print("parameter setting...")
-cudaNow = torch.device('cuda:3')
-nbBatch = 256
-nbEpoch = 200
+cudaNow = torch.device('cuda:0')
+nbBatch = 100
+nbEpoch = 100
 learnRate = 1e-4
 momentum = 0.9
 datFlag = 2
+upperEpoch = 15
+alpha = 0.8
 
-modelName = 'benchMark'
+modelName = 'meanTeacher_mos_muc'
 trainHistoryFile = 'TrainHistory.h5'
 savePath = envPath+'/trained_models/'+modelName
+savePathStudent = savePath+'_student'
+savePathTeacher = savePath+'_teacher'
+
+
 histSavePath = envPath+'/trained_models/'+modelName+trainHistoryFile
 
 subtract_pixel_mean = True
@@ -38,12 +49,12 @@ STEP ONE: data loading
 '''
 print("data loading...")
 # Load the LCZ42 training data.
-_,x_train_2,y_train,_ = load_Semi_Train(envPath,datFlag)
+_, x_train_2, y_train, _ = load_Semi_Test_City(envPath,"moscow",datFlag)
 x_train = x_train_2
 del x_train_2
 
 # Load the LCZ42 testing data.
-_, x_test_2, y_test, _ = load_Semi_Test(envPath, datFlag)
+_, x_test_2, y_test, _ = load_Semi_Test_City(envPath,'munich', datFlag)
 x_test = x_test_2
 del x_test_2
 
@@ -64,6 +75,18 @@ if subtract_pixel_mean:
     x_train -= x_train_mean
     x_test -= x_train_mean
 
+
+# mix training and testing data for semi-supvision training, reproducable random mixing
+x_train = np.concatenate((x_train,x_test),axis=0)
+y_train = np.concatenate((y_train,np.zeros(y_test.shape,y_test.dtype)),axis=0)
+
+np.random.seed(0)
+numSeed = np.random.rand(x_train.shape[0])
+idx = np.argsort(numSeed)
+x_train = x_train[idx]
+y_train = y_train[idx]
+
+
 # convert numpy to pytorch float tensor
 x_train = torch.from_numpy(x_train).type('torch.FloatTensor')
 y_train = torch.from_numpy(y_train).type('torch.LongTensor')
@@ -79,12 +102,14 @@ print(x_test.shape[0], 'test samples')
 print('y_train shape:', y_train.shape)
 
 
+
 '''
 STEP TWO: initial a resnet model
 '''
 sys.path.append(os.path.abspath(envPath+"/src/model"))
 import resnetModel
-resnet = resnetModel.resnet18(pretrained=False, inChannel=x_train.shape[1]).to(cudaNow)
+student = resnetModel.resnet18(pretrained=False, inChannel=x_train.shape[1]).to(cudaNow)
+teacher = resnetModel.resnet18(pretrained=False, inChannel=x_train.shape[1]).to(cudaNow)
 
 
 '''
@@ -92,8 +117,10 @@ STEP THREE: Define a loss function and optimizer
 '''
 import torch.optim as optim
 import torch.nn as nn
-criterion = nn.CrossEntropyLoss()
-optimizer = optim.SGD(resnet.parameters(), lr=learnRate, momentum=momentum)
+classification_loss = nn.CrossEntropyLoss()
+consistency_loss = nn.MSELoss()
+
+optimizer = optim.SGD(student.parameters(), lr=learnRate, momentum=momentum)
 
 
 '''
@@ -102,7 +129,9 @@ STEP FOUR: Train the network
 import modelOperation
 
 print('Start training ...')
-resnet,traLoss,traArry,valLoss,valArry = modelOperation.train(resnet,cudaNow,optimizer,x_train,y_train,criterion,numBatch=nbBatch, numEpoch=nbEpoch, valDat=x_test, valLab=y_test, lrChg=False,earlyStop=False,numPatient=nbEpoch)
+
+student,teacher,traSLoss,traSArry,valSLoss,valSArry,traTLoss,traTArry,valTLoss,valTArry = modelOperation.meanTeacher_Train(student,teacher,cudaNow,x_train,y_train,optimizer,x_test,y_test,classification_loss,consistency_loss,nbBatch,nbEpoch,alpha,upperEpoch)
+
 
 '''
 STEP FIVE: Test the network
@@ -123,12 +152,24 @@ codes for saving and loading models:
 		model.load_state_dict(torch.load(PATH))
 		model.eval()
 '''
-torch.save(resnet.state_dict(), savePath)
+savePathStudent = savePath+'_student'
+savePathTeacher = savePath+'_teacher'
+
+
+torch.save(student.state_dict(), savePathStudent)
+torch.save(teacher.state_dict(), savePathTeacher)
+
 fid = h5py.File(histSavePath,'w')
-fid.create_dataset('traLoss',data=traLoss)
-fid.create_dataset('traArry',data=traArry)
-fid.create_dataset('valLoss',data=valLoss)
-fid.create_dataset('valArry',data=valArry)
+fid.create_dataset('traSLoss',data=traSLoss)
+fid.create_dataset('traSArry',data=traSArry)
+fid.create_dataset('valSLoss',data=valSLoss)
+fid.create_dataset('valSArry',data=valSArry)
+
+fid.create_dataset('traTLoss',data=traTLoss)
+fid.create_dataset('traTArry',data=traTArry)
+fid.create_dataset('valTLoss',data=valTLoss)
+fid.create_dataset('valTArry',data=valTArry)
+
 fid.close()
 
 

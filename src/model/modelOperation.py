@@ -94,18 +94,22 @@ def train(model,device,optimizer,traDat,traLab,criterion = nn.CrossEntropyLoss()
     for epoch in range(numEpoch):
         running_loss = 0.0
         correct = 0.0
-        for t in tqdm(range(np.int(np.ceil(traDat.shape[0]/numBatch)))):
-            # zero the parameter gradients for each minibatch
-            optimizer.zero_grad()
 
+        # reproducable shuffling input data to assure different orders for epoches.
+        np.random.seed(epoch)
+        idx = np.argsort(np.random.rand(traDat.shape[0]))
+
+        for t in tqdm(range(np.int(np.ceil(traDat.shape[0]/numBatch)))):
             # batch organization
             if t == np.int(np.floor(traDat.shape[0]/numBatch)):
-                idx = np.arange(t*numBatch,traDat.shape[0])
+                idxIdx = np.arange(t*numBatch,traDat.shape[0])
             else:
-                idx = np.arange(t*numBatch,(t+1)*numBatch)
-            inDat = traDat[idx,:,:,:].cuda(device)
-            inLab = traLab[idx].cuda(device)
+                idxIdx = np.arange(t*numBatch,(t+1)*numBatch)
+            inDat = traDat[idx[idxIdx],:,:,:].cuda(device)
+            inLab = traLab[idx[idxIdx]].cuda(device)
 
+            # zero the parameter gradients for each minibatch
+            optimizer.zero_grad()
             # forward
             outputs = model(inDat)
             # loss
@@ -132,9 +136,10 @@ def train(model,device,optimizer,traDat,traLab,criterion = nn.CrossEntropyLoss()
 
 
 
-def meanTeacher_Train(student,teacher,device,traDat,traLab,optimizer,valDat,valLab,classification_loss,consistency_loss,numBatch,numEpoch,upperEpoch=80):
+def meanTeacher_Train(student,teacher,device,traDat,traLab,optimizer,valDat,valLab,classification_loss,consistency_loss,numBatch,numEpoch,alpha,upperEpoch=80):
     student.train()
     teacher.train()
+    teacherUpdateCount = 0
     # initialize outputs
     traTLoss = np.zeros((numEpoch))
     traTArry = np.zeros((numEpoch))
@@ -146,17 +151,26 @@ def meanTeacher_Train(student,teacher,device,traDat,traLab,optimizer,valDat,valL
     valSLoss = np.zeros((numEpoch))
     valSArry = np.zeros((numEpoch))
 
+    consistentLoss = np.zeros((numEpoch))
+
 
     # training
     for epoch in range(numEpoch):
         running_loss_t = 0.0
         running_loss_s = 0.0
+        running_loss_c = 0.0
         correct_t = 0.0
         correct_s = 0.0
-        for t in tqdm(range(np.int(np.ceil(traDat.shape[0]/numBatch)))):
-            # zero the parameter gradients for each minibatch
-            optimizer.zero_grad()
 
+        # changing the weight of consistent loss, based on the epoch
+        consistLossWeight = weightOfConsistentLoss(epoch, upperEpoch)
+
+        # alpha value for updating teacher model, weight in exponential moving average (EMA)
+        # alpha=0.99
+        # alpha = min(1 - 1 / (epoch + 1), alpha)
+        
+
+        for t in tqdm(range(np.int(np.ceil(traDat.shape[0]/numBatch)))):
             # batch organization
             if t == np.int(np.floor(traDat.shape[0]/numBatch)):
                 idx = np.arange(t*numBatch,traDat.shape[0])
@@ -178,9 +192,10 @@ def meanTeacher_Train(student,teacher,device,traDat,traLab,optimizer,valDat,valL
             classLoss = classification_loss(outputs_s[labIdx,:],inLab[labIdx])
             consisLoss = consistency_loss(outputs_s,outputs_t)
 
-            consistLossWeight = weightOfConsistentLoss(epoch, upperEpoch)
             loss = classLoss + consistLossWeight*consisLoss
 
+            # zero the parameter gradients for each minibatch
+            optimizer.zero_grad()
             # backward
             loss.backward()
             # optimize
@@ -192,6 +207,7 @@ def meanTeacher_Train(student,teacher,device,traDat,traLab,optimizer,valDat,valL
 
             running_loss_s += classLoss.item()
             running_loss_t += teacherError.item()
+            running_loss_c += consisLoss.item()
 
             _, predicted_s = torch.max(outputs_s.data[labIdx,:], 1)
             _, predicted_t = torch.max(outputs_t.data[labIdx,:], 1)
@@ -199,21 +215,24 @@ def meanTeacher_Train(student,teacher,device,traDat,traLab,optimizer,valDat,valL
             correct_s += predicted_s.eq(inLab[labIdx]).sum().item()
             correct_t += predicted_t.eq(inLab[labIdx]).sum().item()
 
-            # update teacher model
-            alpha=0.99
-            alpha = min(1 - 1 / (epoch + 1), alpha)
-            for teacher_param, student_param in zip(teacher.parameters(), student.parameters()):
-                teacher_param.data.mul_(alpha).add_(1 - alpha, student_param.data)
-
-
-
-
         # training loss and accuracy
         traSLoss[epoch] = running_loss_s/np.ceil(traDat.shape[0]/numBatch)
         traTLoss[epoch] = running_loss_t/np.ceil(traDat.shape[0]/numBatch)
-
+        consistentLoss[epoch] = running_loss_c/np.ceil(traDat.shape[0]/numBatch)
         traSArry[epoch] = correct_s/traDat.shape[0]*100
         traTArry[epoch] = correct_t/traDat.shape[0]*100
+
+
+
+        # update teacher model
+        if traSArry[epoch]>75:
+            if teacherUpdateCount == 0:
+                for teacher_param, student_param in zip(teacher.parameters(), student.parameters()):
+                    teacher_param.data = student_param.data
+            else:
+                for teacher_param, student_param in zip(teacher.parameters(), student.parameters()):
+                    teacher_param.data.mul_(alpha).add_(1 - alpha, student_param.data)
+
 
         # validation loss and accuracy
         _, valSLoss[epoch], valSArry[epoch] = test(student,device,valDat,valLab,classification_loss,512)
@@ -221,6 +240,8 @@ def meanTeacher_Train(student,teacher,device,traDat,traLab,optimizer,valDat,valL
 
         # print
         print('Epoch %d:' % (epoch+1))
+        print('Weight of consistent loss: %.6f' % (consistLossWeight))
+        print('Alpha in EMA: %.6f' % (alpha))
         print('Student model: training loss: %.4f; training acc: %.2f; validation loss: %.4f; validation acc: %.2f' % (traSLoss[epoch], traSArry[epoch],valSLoss[epoch],valSArry[epoch]))
         print('Teacher model: training loss: %.4f; training acc: %.2f; validation loss: %.4f; validation acc: %.2f' % (traTLoss[epoch], traTArry[epoch],valTLoss[epoch],valTArry[epoch]))
 
@@ -234,9 +255,116 @@ def meanTeacher_Train(student,teacher,device,traDat,traLab,optimizer,valDat,valL
 
 
 
-
-
-
-
-
+del meanTeacherDomain_Train(student,teacher,device,traDat,traLab,optimizer,valDat,valLab,classification_loss,consistency_loss,numBatch,numEpoch,alpha,upperEpoch=80):
+    #
+    student.train()
+    teacher.train()
+    # initialize outputs                        
+    traTLoss = np.zeros((numEpoch))
+    traTArry = np.zeros((numEpoch))
+    valTLoss = np.zeros((numEpoch))
+    valTArry = np.zeros((numEpoch))
+    
+    traSLoss = np.zeros((numEpoch))
+    traSArry = np.zeros((numEpoch))
+    valSLoss = np.zeros((numEpoch))
+    valSArry = np.zeros((numEpoch))
+    
+    consistentLoss = np.zeros((numEpoch))
+    
+    
+    # training
+    for epoch in range(numEpoch):
+        running_loss_t = 0.0
+        running_loss_s = 0.0
+        running_loss_c = 0.0
+        correct_t = 0.0
+        correct_s = 0.0
+        
+        # changing the weight of consistent loss, based on the epoch
+        consistLossWeight = weightOfConsistentLoss(epoch, upperEpoch)
+        
+        # alpha value for updating teacher model, weight in exponential moving average (EMA)
+        # alpha=0.99
+        # alpha = min(1 - 1 / (epoch + 1), alpha)
+        
+        
+        for t in tqdm(range(np.int(np.ceil(traDat.shape[0]/numBatch)))):
+            # batch organization
+            if t == np.int(np.floor(traDat.shape[0]/numBatch)):
+                idx = np.arange(t*numBatch,traDat.shape[0])
+            else:
+                idx = np.arange(t*numBatch,(t+1)*numBatch)
+                inDat = traDat[idx,:,:,:].cuda(device)
+                inLab = traLab[idx].cuda(device)
+                
+            # forward           
+            outputs_s = student(inDat)
+            outputs_t = teacher(inDat)
+            
+            # mask for training data that have labels
+            labIdx = inLab>0
+            
+            # losses
+            # classification_loss = nn.CrossEntropyLoss()
+            # consistency_loss = nn.MSELoss()
+            classLoss = classification_loss(outputs_s[labIdx,:],inLab[labIdx])
+            consisLoss = consistency_loss(outputs_s,outputs_t)
+            
+            loss = classLoss + consistLossWeight*consisLoss
+            
+            # zero the parameter gradients for each minibatch
+            optimizer.zero_grad()
+            # backward
+            loss.backward()
+            # optimize
+            # optimizer = optim.SGD(student.parameters(), lr=learnRate, momentum=momentum)
+            optimizer.step()
+            
+            # training loss and accuracy
+            teacherError = classification_loss(outputs_t[labIdx,:],inLab[labIdx])
+            
+            running_loss_s += classLoss.item()
+            running_loss_t += teacherError.item()
+            running_loss_c += consisLoss.item()
+            
+            _, predicted_s = torch.max(outputs_s.data[labIdx,:], 1)
+            _, predicted_t = torch.max(outputs_t.data[labIdx,:], 1)
+            
+            correct_s += predicted_s.eq(inLab[labIdx]).sum().item()
+            correct_t += predicted_t.eq(inLab[labIdx]).sum().item()
+                
+        # training loss and accuracy
+        traSLoss[epoch] = running_loss_s/np.ceil(traDat.shape[0]/numBatch)
+        traTLoss[epoch] = running_loss_t/np.ceil(traDat.shape[0]/numBatch)
+        consistentLoss[epoch] = running_loss_c/np.ceil(traDat.shape[0]/numBatch)
+        traSArry[epoch] = correct_s/traDat.shape[0]*100
+        traTArry[epoch] = correct_t/traDat.shape[0]*100
+            
+            
+            
+        # update teacher model
+        if traSArry[epoch]>75:
+            if teacherUpdateCount == 0:
+                for teacher_param, student_param in zip(teacher.parameters(), student.parameters()):
+                    teacher_param.data = student_param.data
+            else:
+                for teacher_param, student_param in zip(teacher.parameters(), student.parameters()):
+                    teacher_param.data.mul_(alpha).add_(1 - alpha, student_param.data)
+                            
+                            
+        # validation loss and accuracy
+        _, valSLoss[epoch], valSArry[epoch] = test(student,device,valDat,valLab,classification_loss,512)
+        _, valTLoss[epoch], valTArry[epoch] = test(teacher,device,valDat,valLab,classification_loss,512)
+         
+        # print
+        print('Epoch %d:' % (epoch+1))
+        print('Weight of consistent loss: %.6f' % (consistLossWeight))
+        print('Alpha in EMA: %.6f' % (alpha))
+        print('Student model: training loss: %.4f; training acc: %.2f; validation loss: %.4f; validation acc: %.2f' % (traSLoss[epoch], traSArry[epoch],valSLoss[epoch],valSArry[epoch]))
+        print('Teacher model: training loss: %.4f; training acc: %.2f; validation loss: %.4f; validation acc: %.2f' % (traTLoss[epoch], traTArry[epoch],valTLoss[epoch],valTArry[epoch]))
+        
+        
+        print(' --- training done --- ')
+        return student,teacher,traSLoss,traSArry,valSLoss,valSArry,traTLoss,traTArry,valTLoss,valTArry
 

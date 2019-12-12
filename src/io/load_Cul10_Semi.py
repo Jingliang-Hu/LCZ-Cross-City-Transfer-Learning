@@ -3,6 +3,18 @@ import glob
 import os
 import h5py
 
+
+def mean_Std_Normalization(x):
+    print("mean standard deviation normalization")
+    x = x - x.mean(axis=(1,2,3),keepdims=True)
+    x = x/x.std(axis=(1,2,3),keepdims=True)
+    return x
+
+
+
+
+
+
 def load_Semi_Test_City(envPath, cityName, datFlag=0):
     # Input:
     # 	 - envPath 	  path to the local repository

@@ -15,11 +15,24 @@ epoch = range(1,traArry.shape[0]+1)
 
 
 plt.plot(epoch, traArry, 'r', epoch, valArry, 'b')
+plt.legend(('training accuracy', 'test accuracy'), loc='bottom right', shadow=True)
+plt.xlim([1,traArry.shape[0]+1])
+plt.grid(True)
+plt.xlabel('Epoch')
+plt.ylabel('Accuracy in percentage')
+plt.title('ResNet_18_train_mos_test_muc')
 plt.show()
 
 
 plt.plot(epoch, traLoss, 'r', epoch, valLoss, 'b')
+plt.legend(('training loss', 'test loss'), loc='bottom right', shadow=True)
+plt.xlim([1,traArry.shape[0]+1])
+plt.grid(True)
+plt.xlabel('Epoch')
+plt.ylabel('Loss')
+plt.title('ResNet_18_train_mos_test_muc')
 plt.show()
+
 
 
 
