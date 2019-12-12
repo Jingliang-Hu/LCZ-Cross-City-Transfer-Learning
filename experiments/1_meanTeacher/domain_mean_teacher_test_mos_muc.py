@@ -30,7 +30,7 @@ learnRate = 1e-3
 momentum = 0.9
 datFlag = 2
 upperEpoch = 15
-alpha = 0.8
+alphaMax = 0.99
 
 modelName = 'meanTeacher_mos_muc'
 trainHistoryFile = 'TrainHistory.h5'
@@ -59,17 +59,6 @@ input_shape = x_train.shape[1:]
 print("data normalization...")
 x_train = mean_Std_Normalization(x_train)
 x_test = mean_Std_Normalization(x_test)
-
-# mix training and testing data for semi-supvision training, reproducable random mixing
-x_train = np.concatenate((x_train,x_test),axis=0)
-y_train = np.concatenate((y_train,np.zeros(y_test.shape,y_test.dtype)),axis=0)
-
-np.random.seed(0)
-numSeed = np.random.rand(x_train.shape[0])
-idx = np.argsort(numSeed)
-x_train = x_train[idx]
-y_train = y_train[idx]
-
 
 # convert numpy to pytorch float tensor
 x_train = torch.from_numpy(x_train).type('torch.FloatTensor')
@@ -103,8 +92,8 @@ import torch.optim as optim
 import torch.nn as nn
 classification_loss = nn.CrossEntropyLoss()
 consistency_loss = nn.MSELoss()
-
-optimizer = optim.SGD(student.parameters(), lr=learnRate, momentum=momentum)
+# optimizer = optim.SGD(student.parameters(), lr=learnRate, momentum=momentum)
+optimizer = optim.Adam(student.parameters(), lr=learnRate)
 
 
 '''
@@ -113,8 +102,9 @@ STEP FOUR: Train the network
 import modelOperation
 
 print('Start training ...')
+student,teacher,classificationLossTrainStudent,classificationAccuTrainStudent,classificationLossTestStudent,classificationAccuTestStudent,classificationLossTrainTeacher,classificationAccuTrainTeacher,classificationLossTestTeacher,classificationAccuTestTeacher,consistentLossTrain, consistentLossWeight, alpha = modelOperation.domainMeanTeacher_Train(student,teacher,cudaNow,x_train,y_train,optimizer,x_test,y_test,classification_loss,consistency_loss,nbBatch,nbEpoch,alphaMax)
 
-student,teacher,traSLoss,traSArry,valSLoss,valSArry,traTLoss,traTArry,valTLoss,valTArry = modelOperation.meanTeacher_Train(student,teacher,cudaNow,x_train,y_train,optimizer,x_test,y_test,classification_loss,consistency_loss,nbBatch,nbEpoch,alpha,upperEpoch)
+#student,teacher,traSLoss,traSArry,valSLoss,valSArry,traTLoss,traTArry,valTLoss,valTArry = modelOperation.meanTeacher_Train(student,teacher,cudaNow,x_train,y_train,optimizer,x_test,y_test,classification_loss,consistency_loss,nbBatch,nbEpoch,alpha,upperEpoch)
 
 
 '''
@@ -144,18 +134,18 @@ torch.save(student.state_dict(), savePathStudent)
 torch.save(teacher.state_dict(), savePathTeacher)
 
 fid = h5py.File(histSavePath,'w')
-fid.create_dataset('traSLoss',data=traSLoss)
-fid.create_dataset('traSArry',data=traSArry)
-fid.create_dataset('valSLoss',data=valSLoss)
-fid.create_dataset('valSArry',data=valSArry)
-
-fid.create_dataset('traTLoss',data=traTLoss)
-fid.create_dataset('traTArry',data=traTArry)
-fid.create_dataset('valTLoss',data=valTLoss)
-fid.create_dataset('valTArry',data=valTArry)
-
+fid.create_dataset('alpha',data=alpha)
+fid.create_dataset('classificationLossTrainStudent',data=classificationLossTrainStudent)
+fid.create_dataset('classificationLossTrainTeacher',data=classificationLossTrainTeacher)
+fid.create_dataset('consistentLossTrain',data=consistentLossTrain)
+fid.create_dataset('consistentLossWeight',data=consistentLossWeight)
+fid.create_dataset('classificationAccuTrainTeacher',data=classificationAccuTrainTeacher)
+fid.create_dataset('classificationAccuTrainStudent',data=classificationAccuTrainStudent)
+fid.create_dataset('classificationLossTestStudent',data=classificationLossTestStudent)
+fid.create_dataset('classificationLossTestTeacher',data=classificationLossTestTeacher)
+fid.create_dataset('classificationAccuTestTeacher',data=classificationAccuTestTeacher)
+fid.create_dataset('classificationAccuTestStudent',data=classificationAccuTestStudent)
 fid.close()
-
 
 
 
