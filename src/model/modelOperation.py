@@ -255,7 +255,7 @@ def meanTeacher_Train(student,teacher,device,traDat,traLab,optimizer,valDat,valL
 
 
 
-def domainMeanTeacher_Train(student,teacher,device,traDat,traLab,optimizer,valDat,valLab,classification_loss,consistency_loss,numBatch,numEpoch,alpha,upperEpoch=80):
+def domainMeanTeacher_Train(student,teacher,device,traDat,traLab,optimizer,valDat,valLab,classification_loss,consistency_loss,numBatch,numEpoch,alphaMax,upperEpoch=80):
     print('The number of samples in source domain: % d' % (traDat.shape[0]))
     print('The number of samples in target domain: % d' % (valDat.shape[0]))
     #
@@ -308,7 +308,7 @@ def domainMeanTeacher_Train(student,teacher,device,traDat,traLab,optimizer,valDa
         
         # alpha value for updating teacher model, weight in exponential moving average (EMA)
         # alpha=0.99
-        alpha[epoch] = min(1 - 1 / (epoch + 1), alpha)
+        alpha[epoch] = min(1 - 1 / (epoch + 1), alphaMax)
         
         # reproducable shuffling input data to assure different orders for epoches.
         np.random.seed(epoch)
