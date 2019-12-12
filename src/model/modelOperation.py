@@ -255,7 +255,7 @@ def meanTeacher_Train(student,teacher,device,traDat,traLab,optimizer,valDat,valL
 
 
 
-def domainMeanTeacher_Train(student,teacher,device,traDat,traLab,optimizer,valDat,valLab,classification_loss,consistency_loss,numBatch,numEpoch,alphaMax,upperEpoch=80):
+def domainMeanTeacher_Train(student,teacher,device,traDat,traLab,optimizer,valDat,valLab,classification_loss,consistency_loss,numBatch,numEpoch,alphaMax,upperEpoch=50):
     print('The number of samples in source domain: % d' % (traDat.shape[0]))
     print('The number of samples in target domain: % d' % (valDat.shape[0]))
     #
@@ -383,7 +383,8 @@ def domainMeanTeacher_Train(student,teacher,device,traDat,traLab,optimizer,valDa
          
         # print
         print('Epoch %d:' % (epoch+1))
-        print('Weight of consistent loss: %.6f' % (consistentLossWeight[epoch]))
+        #print('Total loss = classification loss + weight of consistent loss * consistent loss: %.4f = %.4f + %.4f * %.4f' % (classificationLossTrainStudent[epoch] + consistentLossWeight[epoch] * consistentLossTrain[epoch], classificationLossTrainStudent[epoch], consistentLossWeight[epoch], consistentLossTrain[epoch]))
+        print('Total loss (%.4f) = classification loss (%.4f) + weight of consistent loss (%.4f) * consistent loss (%.4f)' % (classificationLossTrainStudent[epoch] + consistentLossWeight[epoch] * consistentLossTrain[epoch], classificationLossTrainStudent[epoch], consistentLossWeight[epoch], consistentLossTrain[epoch]))
         print('Alpha in EMA: %.6f' % (alpha[epoch]))
         print('Student model: training loss: %.4f; training acc: %.2f; testing loss: %.4f; testing acc: %.2f' % (classificationLossTrainStudent[epoch], classificationAccuTrainStudent[epoch],classificationLossTestStudent[epoch],classificationAccuTestStudent[epoch]))
         print('Teacher model: training loss: %.4f; training acc: %.2f; testing loss: %.4f; testing acc: %.2f' % (classificationLossTrainTeacher[epoch], classificationAccuTrainTeacher[epoch],classificationLossTestTeacher[epoch],classificationAccuTestTeacher[epoch]))
