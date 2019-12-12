@@ -343,7 +343,7 @@ def domainMeanTeacher_Train(student,teacher,device,traDat,traLab,optimizer,valDa
             classLoss = classification_loss(student_out_source,sourceLab)
             consisLoss = consistency_loss(student_out_target,teacher_out_target)
             # weighted combination of losses
-            loss = classLoss + consistLossWeight*consisLoss
+            loss = classLoss + consistentLossWeight[epoch]*consisLoss
 
             # zero the parameter gradients for each minibatch
             optimizer.zero_grad()
