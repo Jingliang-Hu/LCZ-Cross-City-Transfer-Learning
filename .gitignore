@@ -20,3 +20,9 @@ trained_models
 
 .envPath
 *.png
+
+# ignore experiment output
+*/*outcome*
+
+
+
