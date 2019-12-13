@@ -2,6 +2,33 @@ import numpy as np
 import glob
 import os
 import h5py
+from datetime import datetime
+
+
+def initialOutputFolder(paraDict):
+    # get time stamp
+    now = datetime.now()
+    timestamp = now.strftime("%Y-%m-%d_%H:%M:%S")
+    outcomeDir = paraDict["modelName"] + '_tr_'+paraDict["trainData"]+'_te_'+paraDict["testData"]+ '_outcome_' + timestamp
+    # mkdir output folder
+    os.mkdir(outcomeDir)
+    return outcomeDir
+
+def recordExpParameters(outcomeDir,paraDict):
+    # record parameters
+    f = open(os.path.join(outcomeDir,'parameters.txt'),"w")
+    f.write("PARAMETERS:")
+    f.write("\n")
+    for key,value in paraDict.items():
+        try:
+            f.write(key+':'+value)
+        except:
+            f.write(key+':'+str(value))
+        f.write("\n")
+    f.close()
+    del f
+    return 0
+
 
 
 def mean_Std_Normalization(x):
@@ -9,9 +36,6 @@ def mean_Std_Normalization(x):
     x = x - x.mean(axis=(1,2,3),keepdims=True)
     x = x/x.std(axis=(1,2,3),keepdims=True)
     return x
-
-
-
 
 
 
@@ -219,5 +243,24 @@ def trainValidSplit(x_train,y_train,perc=0.1,randSeed=1):
     return x_train,y_train,x_valid,y_valid
 
 
+def lczLoader(envPath,train,test,datFlag):
+    # load training data
+    if train=="lcz42":
+        x_train_1,x_train_2,y_train,_ = load_Semi_Train(envPath,datFlag)
+    else:
+        x_train_1,x_train_2,y_train,_ = load_Semi_Test_City(envPath,train,datFlag)
+
+    # load testing data
+    if test=="cul10":
+        x_test_1,x_test_2,y_test,_ = load_Semi_Test(envPath, datFlag)
+    else:
+        x_test_1,x_test_2,y_test,_ = load_Semi_Test_City(envPath,test,datFlag)
 
 
+    # choose data: s1 or s2
+    if datFlag==0:
+        return x_train_1,x_train_2,y_train,x_test_1,x_test_2,y_test
+    elif datFlag==1:
+        return x_train_1,y_train,x_test_1,y_test
+    elif datFlag==2:
+        return x_train_2,y_train,x_test_2,y_test

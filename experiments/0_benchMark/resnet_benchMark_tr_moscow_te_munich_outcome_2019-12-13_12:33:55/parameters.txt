@@ -1,0 +1,9 @@
+PARAMETERS:
+nbBatch:256
+nbEpoch:100
+learningRate:0.001
+trainData:moscow
+testData:munich
+normalization:ms
+datFlag:2
+modelName:resnet_benchMark
