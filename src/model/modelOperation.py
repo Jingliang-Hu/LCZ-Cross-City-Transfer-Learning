@@ -318,7 +318,7 @@ def domainMeanTeacher_Train(student,teacher,device,traDat,traLab,optimizer,valDa
 
         # if nb of samples in target domain is smaller than the nb of samples in source domain
         if np.ceil(traDat.shape[0]/valDat.shape[0])>1:
-            idxVal = np.tile(idxVal,(np.ceil(traDat.shape[0]/valDat.shape[0]).astype(np.uint32),1,1,1))
+            idxVal = np.tile(idxVal,(np.ceil(traDat.shape[0]*1.0/valDat.shape[0]).astype(np.uint32)))
 
         # iterations in batches
         for t in tqdm(range(np.int(np.ceil(traDat.shape[0]/numBatch)))):
