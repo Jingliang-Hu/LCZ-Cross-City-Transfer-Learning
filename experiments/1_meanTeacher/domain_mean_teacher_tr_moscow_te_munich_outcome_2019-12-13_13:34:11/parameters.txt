@@ -1,0 +1,11 @@
+PARAMETERS:
+nbBatch:100
+nbEpoch:100
+learningRate:0.001
+maxEpochCosisLossWeight:50
+alphaEMA:0.99
+trainData:moscow
+testData:munich
+normalization:ms
+datFlag:2
+modelName:domain_mean_teacher
