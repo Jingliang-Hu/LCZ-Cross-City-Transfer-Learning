@@ -22,8 +22,7 @@ trained_models
 *.png
 
 # ignore experiment output
-*/*outcome*
-*/*outcome*/*
+**/*outcome*
 
 
 
