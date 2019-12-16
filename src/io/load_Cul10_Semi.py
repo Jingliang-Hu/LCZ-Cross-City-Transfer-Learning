@@ -8,7 +8,7 @@ from datetime import datetime
 def initialOutputFolder(paraDict):
     # get time stamp
     now = datetime.now()
-    timestamp = now.strftime("%Y-%m-%d_%H:%M:%S")
+    timestamp = now.strftime("%Y-%m-%d_%H-%M-%S")
     outcomeDir = paraDict["modelName"] + '_tr_'+paraDict["trainData"]+'_te_'+paraDict["testData"]+ '_outcome_' + timestamp
     # mkdir output folder
     os.mkdir(outcomeDir)
