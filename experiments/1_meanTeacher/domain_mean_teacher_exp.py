@@ -25,11 +25,14 @@ print("parameter setting...")
 paraDict = {
         ### network parameters
         "nbBatch": 100,
-        "nbEpoch": 100,
+        "nbEpoch": 200,
         "learningRate": 1e-3,
-        "maxEpochCosisLossWeight": 50,
+        "maxEpochConsisLossWeight": "none",
+        "confidenceModel":1,
+        "confidenceThreshold":0.9,
         "alphaEMA": 0.99,
-
+        "alphaMaxEpoch": 50,
+ 
         ### data loading parameters
         
         "trainData": "moscow", # training data could be the training data of LCZ42 data, or data of one of the cultural-10 city
@@ -41,15 +44,18 @@ paraDict = {
         "modelName":'domain_mean_teacher', # model name
         }
 
-cudaNow = torch.device('cuda:0')
+cudaNow = torch.device('cuda:1')
 
 nbBatch = paraDict["nbBatch"]
 nbEpoch = paraDict["nbEpoch"]
 learnRate = paraDict["learningRate"]
 datFlag = paraDict["datFlag"]
 modelName = paraDict["modelName"]
-upperEpoch = paraDict["maxEpochCosisLossWeight"]
+upperEpoch = paraDict["maxEpochConsisLossWeight"]
 alphaMax = paraDict["alphaEMA"]
+alphaMaxEpoch = paraDict["alphaMaxEpoch"]
+confidentModel = paraDict["confidenceModel"]
+confidentThres = paraDict["confidenceThreshold"]
 
 '''
 initial folder saving outputs
@@ -114,7 +120,11 @@ STEP FOUR: Train the network
 import modelOperation
 
 print('Start training ...')
-student,teacher,classificationLossTrainStudent,classificationAccuTrainStudent,classificationLossTestStudent,classificationAccuTestStudent,classificationLossTrainTeacher,classificationAccuTrainTeacher,classificationLossTestTeacher,classificationAccuTestTeacher,consistentLossTrain, consistentLossWeight, alpha = modelOperation.domainMeanTeacher_Train(student,teacher,cudaNow,x_train,y_train,optimizer,x_test,y_test,classification_loss,consistency_loss,nbBatch,nbEpoch,alphaMax)
+if confidentModel:
+    student,teacher,classificationLossTrainStudent,classificationAccuTrainStudent,classificationLossTestStudent,classificationAccuTestStudent,classificationLossTrainTeacher,classificationAccuTrainTeacher,classificationLossTestTeacher,classificationAccuTestTeacher,consistentLossTrain, consistentLossWeight, alpha = modelOperation.domainMeanTeacherConfidence_Train(student,teacher,cudaNow,x_train,y_train,optimizer,x_test,y_test,classification_loss,consistency_loss,nbBatch,nbEpoch,alphaMax,alphaMaxEpoch,confidentThres)
+
+else:
+    student,teacher,classificationLossTrainStudent,classificationAccuTrainStudent,classificationLossTestStudent,classificationAccuTestStudent,classificationLossTrainTeacher,classificationAccuTrainTeacher,classificationLossTestTeacher,classificationAccuTestTeacher,consistentLossTrain, consistentLossWeight, alpha = modelOperation.domainMeanTeacher_Train(student,teacher,cudaNow,x_train,y_train,optimizer,x_test,y_test,classification_loss,consistency_loss,nbBatch,nbEpoch,alphaMax)
 
 #student,teacher,traSLoss,traSArry,valSLoss,valSArry,traTLoss,traTArry,valTLoss,valTArry = modelOperation.meanTeacher_Train(student,teacher,cudaNow,x_train,y_train,optimizer,x_test,y_test,classification_loss,consistency_loss,nbBatch,nbEpoch,alpha,upperEpoch)
 
