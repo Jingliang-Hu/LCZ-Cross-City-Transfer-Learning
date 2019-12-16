@@ -13,6 +13,8 @@ import torch
 import numpy as np
 import h5py
 from datetime import datetime
+from torchvision import transforms, datasets
+
 
 
 '''
@@ -21,7 +23,7 @@ PARAMETER SETTING
 print("parameter setting...")
 paraDict = {
         ### network parameters
-        "nbBatch": 256,
+        "nbBatch": 100,
         "nbEpoch": 100,
         "learningRate": 1e-3,
 
@@ -32,7 +34,7 @@ paraDict = {
         "datFlag":2, # data selection: sentinel-1, sentinel-2, or both
 
         ### model name
-        "modelName":'resnet_benchMark', # model name
+        "modelName":'resnet18_benchMark', # model name
         }
 
 cudaNow = torch.device('cuda:0')
@@ -46,15 +48,20 @@ modelName = paraDict["modelName"]
 '''
 initial folder saving outputs
 '''
-outcomeDir = initialOutputFolder(paraDict)
-print("Experiments outcomes are saving in the directory: "+outcomeDir)
-# record parameters
-recordExpParameters(outcomeDir,paraDict)
+# outcomeDir = initialOutputFolder(paraDict)
+# print("Experiments outcomes are saving in the directory: "+outcomeDir)
+## record parameters
+# recordExpParameters(outcomeDir,paraDict)
 
 
 
 '''
 STEP ONE: data loading
+'''
+trainDataSet,testDataSet = lczIterDataSet(envPath,paraDict["trainData"],paraDict["testData"],datFlag)
+trainDataLoader = torch.utils.data.DataLoader(trainDataSet, batch_size=nbBatch, shuffle=True)
+testDataLoader = torch.utils.data.DataLoader(trainDataSet, batch_size=512)
+
 '''
 print("data loading...")
 x_train,y_train,x_test, y_test = lczLoader(envPath,paraDict["trainData"],paraDict["testData"],datFlag)
@@ -79,7 +86,7 @@ print('x_train shape:', x_train.shape)
 print(x_train.shape[0], 'train samples')
 print(x_test.shape[0], 'test samples')
 print('y_train shape:', y_train.shape)
-
+'''
 
 '''
 STEP TWO: initial a resnet model
@@ -101,9 +108,13 @@ optimizer = optim.Adam(resnet.parameters(), lr=learnRate)
 '''
 STEP FOUR: Train the network
 '''
-import modelOperation
+trainDataLoader = torch.utils.data.DataLoader(trainDataSet, batch_size=nbBatch, shuffle=True)
+testDataLoader = torch.utils.data.DataLoader(trainDataSet, batch_size=512)
+
+# import modelOperation
+import modelOperDataLoader
 print('Start training ...')
-resnet,traLoss,traArry,valLoss,valArry = modelOperation.train(resnet,cudaNow,optimizer,x_train,y_train,criterion,numBatch=nbBatch, numEpoch=nbEpoch, valDat=x_test, valLab=y_test, lrChg=False,earlyStop=False,numPatient=nbEpoch)
+resnet,traLoss,traArry,valLoss,valArry = modelOperDataLoader.train(resnet,cudaNow,optimizer,trainDataLoader,criterion,nbBatch,nbEpoch,testDataLoader)
 
 '''
 STEP FIVE: Test the network

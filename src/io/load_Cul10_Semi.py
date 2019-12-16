@@ -3,6 +3,117 @@ import glob
 import os
 import h5py
 from datetime import datetime
+import torch
+from torch.utils.data import Dataset, DataLoader
+from torchvision import transforms, utils
+import matplotlib.pyplot as plt
+
+
+
+class ToTensor(object):
+    """Convert ndarrays in sample to Tensors."""    
+    def __call__(self, sample):
+        data, label = sample['data'], sample['label']
+        # swap color axis because
+        # numpy image: H x W x C
+        # torch image: C X H X W
+        data = data.transpose((2, 0, 1))
+        return {'data': torch.from_numpy(data),
+                'label': torch.from_numpy(label)}
+
+
+class randomNoise(object):
+    """
+    add random noise with 0 mean and a given standard deviation
+    """
+    def __init__(self, std):
+        self.std = std
+            
+    def __call__(self, sample):
+        data, label = sample['data'],sample['label']
+        data += np.random.normal(0, self.std, data.shape)
+        return {'data': data, 'label': label}
+
+
+class LCZDataset(Dataset):
+    """
+    pytorch iterative data loader costomized to lcz data
+    """
+    def __init__(self, dataFile, dataFlag, transform=None):
+        self.dataFile = dataFile
+        self.dataFlag = dataFlag
+        self.transform = transform
+
+
+    def __len__(self):
+        fid = h5py.File(self.dataFile)
+        nb_sample = np.array(fid['y']).shape[0]
+        fid.close()
+        del fid
+        return nb_sample
+
+    def __getitem__(self,idx):
+        if torch.is_tensor(idx):
+            idx = idx.tolist()
+        fid = h5py.File(self.dataFile)
+        if self.dataFlag == 0:
+            data_1 = np.array(fid['x_1'])[idx,:,:,:]
+            data_2 = np.array(fid['x_2'])[idx,:,:,:]
+            label = np.array(fid['y'])[idx,:]
+            sample_1 = {'data': data_1, 'label': label}
+            sample_2 = {'data': data_2, 'label': label}
+            fid.close()
+            del fid
+            if self.transform:
+                sample_1 = self.transform(sample_1)
+                sample_2 = self.transform(sample_2)
+                return sample_1,sample_2
+        elif self.dataFlag == 1:
+            data = np.array(fid['x_1'])[idx,:,:,:]
+            label = np.array(fid['y'])[idx,:]                            
+            sample = {'data': data, 'label': label}
+            fid.close()
+            del fid
+            if self.transform:                            
+                sample = self.transform(sample)
+                return sample
+        elif self.dataFlag == 2:
+            data = np.array(fid['x_2'])[idx,:,:,:]
+            label = np.array(fid['y'])[idx,:]                                                          
+            sample = {'data': data, 'label': label}
+            fid.close()                                                                                
+            del fid                                                                                                            
+            if self.transform:                                                                                                                                     
+                sample = self.transform(sample)
+                return sample
+
+def lczIterDataSet(envPath,train,test,datFlag,transform=None):
+    # load training data
+    if train=="lcz42":
+        datDir = envPath + '/data/train/train.h5'
+        trainDataSet = LCZDataset(datDir,datFlag,transform)
+    else:
+        datFile = envPath+'/data/test/'+cityName+'.h5'
+        trainDataSet = LCZDataset(datDir,datFlag,transform)
+    # load testing data
+    if test=="cul10":
+        datFile = envPath+'/data/test/'+cityName+'.h5'
+        testDataSet = LCZDataset(datDir,datFlag,transform)
+    else:
+        datFile = envPath+'/data/test/'+cityName+'.h5'
+        testDataSet = LCZDataset(datDir,datFlag,transform)
+        
+    return trainDataSet,testDataSet    
+
+
+
+
+def show_sample(data, label):
+    tmp = data[:,:,1:4]
+    plt.imshow(tmp)
+    plt.title('Label: %d' % (np.argmax(label)))
+    
+
 
 
 def initialOutputFolder(paraDict):
