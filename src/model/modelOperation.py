@@ -146,6 +146,8 @@ def train(model,device,optimizer,traDat,traLab,criterion = nn.CrossEntropyLoss()
 
 
 def meanTeacher_Train(student,teacher,device,traDat,traLab,optimizer,valDat,valLab,classification_loss,consistency_loss,numBatch,numEpoch,alpha,upperEpoch=80):
+    # this function trains the mean teacher model: the training data of target and source domains are mixed together.
+
     student.train()
     teacher.train()
     teacherUpdateCount = 0
@@ -265,6 +267,8 @@ def meanTeacher_Train(student,teacher,device,traDat,traLab,optimizer,valDat,valL
 
 
 def domainMeanTeacher_Train(student,teacher,device,traDat,traLab,optimizer,valDat,valLab,classification_loss,consistency_loss,numBatch,numEpoch,alphaMax,upperEpoch=50):
+    # this function trains the mean teacher model, which organizes the data of source and target domains in separated batches.
+
     print('The number of samples in source domain: % d' % (traDat.shape[0]))
     print('The number of samples in target domain: % d' % (valDat.shape[0]))
     #
@@ -406,6 +410,8 @@ def domainMeanTeacher_Train(student,teacher,device,traDat,traLab,optimizer,valDa
 
 
 def domainMeanTeacherConfidence_Train(student,teacher,device,traDat,traLab,optimizer,valDat,valLab,classification_loss,consistency_loss,numBatch,numEpoch,alphaMax,alphaMaxEpoch,confident_thres=0.9):
+    # this function trains a mean teacher model which separates the data of the source and target domains in different batches, and introduce the confident mask for teacher model
+
     print('The number of samples in source domain: % d' % (traDat.shape[0]))
     print('The number of samples in target domain: % d' % (valDat.shape[0]))
     #
