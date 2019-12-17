@@ -253,11 +253,11 @@ def meanTeacher_Train(student,teacher,device,traDat,traLab,optimizer,valDat,valL
 
 
 
-def domainMeanTeacher_Train(student,teacher,device,traDat,traLab,optimizer,valDat,valLab,classification_loss,consistency_loss,numBatch,numEpoch,alphaMax,upperEpoch=50):
+def domainMeanTeacher_Train(student,teacher,device,traDataLoad,optimizer,valDataLoad,classification_loss,consistency_loss,numBatch,numEpoch,alphaMax,upperEpoch=50):
     # this function trains the mean teacher model, which organizes the data of source and target domains in separated batches.
 
-    print('The number of samples in source domain: % d' % (traDat.shape[0]))
-    print('The number of samples in target domain: % d' % (valDat.shape[0]))
+    print('The number of samples in source domain: % d' % (len(traDataLoad.dataset)))
+    print('The number of samples in target domain: % d' % (len(valDataLoad.dataset)))
     #
     student.train()
     teacher.train()
@@ -295,6 +295,7 @@ def domainMeanTeacher_Train(student,teacher,device,traDat,traLab,optimizer,valDa
     '''
     start training 
     '''
+    print(" ----------------------------------------- ")
     # training
     for epoch in range(numEpoch):
         running_loss_stu_class = 0.0
@@ -311,28 +312,15 @@ def domainMeanTeacher_Train(student,teacher,device,traDat,traLab,optimizer,valDa
         # alpha[epoch] = min(1 - 1 / (epoch + 1), alphaMax)
         alpha[epoch] = calculateEMAAlpha(epoch, upperEpoch, alphaMax)
 
-        # reproducable shuffling input data to assure different orders for epoches.
-        np.random.seed(epoch)
-        idxTra = np.argsort(np.random.rand(traDat.shape[0]))
-        np.random.seed(epoch)
-        idxVal = np.argsort(np.random.rand(valDat.shape[0]))
-
-        # if nb of samples in target domain is smaller than the nb of samples in source domain
-        if np.ceil(traDat.shape[0]/valDat.shape[0])>1:
-            idxVal = np.tile(idxVal,(np.ceil(traDat.shape[0]*1.0/valDat.shape[0]).astype(np.uint32)))
 
         # iterations in batches
-        for t in tqdm(range(np.int(np.ceil(traDat.shape[0]/numBatch)))):
-            # batch organization
-            if t == np.int(np.floor(traDat.shape[0]/numBatch)):
-                idxIdx = np.arange(t*numBatch,traDat.shape[0])
-            else:
-                idxIdx = np.arange(t*numBatch,(t+1)*numBatch)
+        print("Number of batches (%d in total): " % (len(traDataLoad)))
 
-            # source data, source label, and target data, for each batch
-            sourceDat = traDat[idxTra[idxIdx],:,:,:].cuda(device)
-            sourceLab = traLab[idxTra[idxIdx]].cuda(device)
-            targetDat = valDat[idxVal[idxIdx],:,:,:].cuda(device)
+        for i, data in tqdm(enumerate(zip(traDataLoad,valDataLoad))):
+            sourceDat = data[0]['data'].to(device,dtype=torch.float)
+            sourceLab = data[0]['label'].to(device,dtype=torch.float)
+            sourceLab = torch.max(sourceLab,1)[1]
+            targetDat = data[1]['data'].to(device,dtype=torch.float)
 
             # forward           
             student_out_source = student(sourceDat)
@@ -359,9 +347,9 @@ def domainMeanTeacher_Train(student,teacher,device,traDat,traLab,optimizer,valDa
             # losses for recording the training
             classTeaLoss = classification_loss(teacher_out_source,sourceLab)
             # training loss and accuracy
-            running_loss_stu_class += classLoss.item()
-            running_loss_tea_class += classTeaLoss.item()
-            running_loss_consis += consisLoss.item()
+            running_loss_stu_class += classLoss.item()*sourceDat.size(0)
+            running_loss_tea_class += classTeaLoss.item()*sourceDat.size(0)
+            running_loss_consis += consisLoss.item()*sourceDat.size(0)
             
             _, predicted_s = torch.max(student_out_source.data, 1)
             _, predicted_t = torch.max(teacher_out_source.data, 1)
@@ -370,17 +358,16 @@ def domainMeanTeacher_Train(student,teacher,device,traDat,traLab,optimizer,valDa
             correct_t += predicted_t.eq(sourceLab).sum().item()
                 
         # training loss
-        classificationLossTrainStudent[epoch] = running_loss_stu_class/np.ceil(traDat.shape[0]/numBatch)
-        classificationLossTrainTeacher[epoch] = running_loss_tea_class/np.ceil(traDat.shape[0]/numBatch)
-        consistentLossTrain[epoch] = running_loss_consis/np.ceil(traDat.shape[0]/numBatch)
+        classificationLossTrainStudent[epoch] = running_loss_stu_class/len(traDataLoad.dataset)
+        classificationLossTrainTeacher[epoch] = running_loss_tea_class/len(traDataLoad.dataset)
+        consistentLossTrain[epoch] = running_loss_consis/len(traDataLoad.dataset)
         # training accuracy
-        classificationAccuTrainStudent[epoch] = correct_s/traDat.shape[0]*100
-        classificationAccuTrainTeacher[epoch] = correct_t/traDat.shape[0]*100
+        classificationAccuTrainStudent[epoch] = correct_s/len(traDataLoad.dataset)*100
+        classificationAccuTrainTeacher[epoch] = correct_t/len(traDataLoad.dataset)*100
         
-
         # validation loss and accuracy
-        _, classificationLossTestStudent[epoch], classificationAccuTestStudent[epoch] = test(student,device,valDat,valLab,classification_loss,512)
-        _, classificationLossTestTeacher[epoch], classificationAccuTestTeacher[epoch] = test(teacher,device,valDat,valLab,classification_loss,512)
+        _, classificationLossTestStudent[epoch], classificationAccuTestStudent[epoch] = test(student,device,valDataLoad,classification_loss)
+        _, classificationLossTestTeacher[epoch], classificationAccuTestTeacher[epoch] = test(teacher,device,valDataLoad,classification_loss)
          
         # print
         print('Epoch %d:' % (epoch+1))
@@ -396,11 +383,20 @@ def domainMeanTeacher_Train(student,teacher,device,traDat,traLab,optimizer,valDa
 
 
 
-def domainMeanTeacherConfidence_Train(student,teacher,device,traDat,traLab,optimizer,valDat,valLab,classification_loss,consistency_loss,numBatch,numEpoch,alphaMax,alphaMaxEpoch,confident_thres=0.9):
+
+
+
+
+
+
+
+
+def domainMeanTeacherConfidence_Train(student,teacher,device,traDataLoad,optimizer,valDataLoad,classification_loss,consistency_loss,numBatch,numEpoch,alphaMax,alphaMaxEpoch,confident_thres=0.9):
     # this function trains a mean teacher model which separates the data of the source and target domains in different batches, and introduce the confident mask for teacher model
 
-    print('The number of samples in source domain: % d' % (traDat.shape[0]))
-    print('The number of samples in target domain: % d' % (valDat.shape[0]))
+    print('The number of samples in source domain: % d' % (len(traDataLoad.dataset)))
+    print('The number of samples in target domain: % d' % (len(valDataLoad.dataset)))
+
     #
     student.train()
     teacher.train()
@@ -436,6 +432,7 @@ def domainMeanTeacherConfidence_Train(student,teacher,device,traDat,traLab,optim
     '''
     start training 
     '''
+    print(" ----------------------------------------- ")
     # training
     for epoch in range(numEpoch):
         running_loss_stu_class = 0.0
@@ -443,34 +440,20 @@ def domainMeanTeacherConfidence_Train(student,teacher,device,traDat,traLab,optim
         running_loss_consis = 0.0
         correct_t = 0.0
         correct_s = 0.0
-
+        count_con = 0.0
 
         # alpha value for updating teacher model, weight in exponential moving average (EMA)
         # alpha=0.99
         # alpha[epoch] = min(1 - 1 / (epoch + 1), alphaMax)
         alpha[epoch] = calculateEMAAlpha(epoch, alphaMaxEpoch, alphaMax)
-        # reproducable shuffling input data to assure different orders for epoches.
-        np.random.seed(epoch)
-        idxTra = np.argsort(np.random.rand(traDat.shape[0]))
-        np.random.seed(epoch)
-        idxVal = np.argsort(np.random.rand(valDat.shape[0]))
-
-        # if nb of samples in target domain is smaller than the nb of samples in source domain
-        if np.ceil(traDat.shape[0]/valDat.shape[0])>1:
-            idxVal = np.tile(idxVal,(np.ceil(traDat.shape[0]*1.0/valDat.shape[0]).astype(np.uint32)))
 
         # iterations in batches
-        for t in tqdm(range(np.int(np.ceil(traDat.shape[0]/numBatch)))):
-            # batch organization
-            if t == np.int(np.floor(traDat.shape[0]/numBatch)):
-                idxIdx = np.arange(t*numBatch,traDat.shape[0])
-            else:
-                idxIdx = np.arange(t*numBatch,(t+1)*numBatch)
-
-            # source data, source label, and target data, for each batch
-            sourceDat = traDat[idxTra[idxIdx],:,:,:].cuda(device)
-            sourceLab = traLab[idxTra[idxIdx]].cuda(device)
-            targetDat = valDat[idxVal[idxIdx],:,:,:].cuda(device)
+        print("Number of batches (%d in total): " % (len(traDataLoad)))
+        for i, data in tqdm(enumerate(zip(traDataLoad,valDataLoad))):
+            sourceDat = data[0]['data'].to(device,dtype=torch.float)
+            sourceLab = data[0]['label'].to(device,dtype=torch.float)
+            sourceLab = torch.max(sourceLab,1)[1]
+            targetDat = data[1]['data'].to(device,dtype=torch.float)
 
             # forward           
             student_out_source = student(sourceDat)
@@ -483,9 +466,10 @@ def domainMeanTeacherConfidence_Train(student,teacher,device,traDat,traLab,optim
             confident_mask = torch.max(teacher_prob,1)[0]>confident_thres
             # losses for backpropagation
             classLoss = classification_loss(student_out_source,sourceLab)
-            if torch.sum(confident_mask)>0:
+            if torch.sum(confident_mask)>=0.5*len(traDataLoad):
+                count_con += torch.sum(confident_mask)
                 consisLoss = consistency_loss(student_out_target[confident_mask,:],teacher_out_target[confident_mask,:])
-                running_loss_consis += consisLoss.item()
+                running_loss_consis += consisLoss.item()*torch.sum(confident_mask)
             else:
                 consisLoss = 0
             # weighted combination of losses
@@ -504,8 +488,8 @@ def domainMeanTeacherConfidence_Train(student,teacher,device,traDat,traLab,optim
             # losses for recording the training
             classTeaLoss = classification_loss(teacher_out_source,sourceLab)
             # training loss and accuracy
-            running_loss_stu_class += classLoss.item()
-            running_loss_tea_class += classTeaLoss.item()
+            running_loss_stu_class += classLoss.item()*sourceDat.size(0)
+            running_loss_tea_class += classTeaLoss.item()*sourceDat.size(0)
 
             _, predicted_s = torch.max(student_out_source.data, 1)
             _, predicted_t = torch.max(teacher_out_source.data, 1)
@@ -514,16 +498,16 @@ def domainMeanTeacherConfidence_Train(student,teacher,device,traDat,traLab,optim
             correct_t += predicted_t.eq(sourceLab).sum().item()
 
         # training loss
-        classificationLossTrainStudent[epoch] = running_loss_stu_class/np.ceil(traDat.shape[0]/numBatch)
-        classificationLossTrainTeacher[epoch] = running_loss_tea_class/np.ceil(traDat.shape[0]/numBatch)
-        consistentLossTrain[epoch] = running_loss_consis/np.ceil(traDat.shape[0]/numBatch)
+        classificationLossTrainStudent[epoch] = running_loss_stu_class/len(traDataLoad.dataset)
+        classificationLossTrainTeacher[epoch] = running_loss_tea_class/len(traDataLoad.dataset)
+        consistentLossTrain[epoch] = running_loss_consis/count_con
         # training accuracy
-        classificationAccuTrainStudent[epoch] = correct_s/traDat.shape[0]*100
-        classificationAccuTrainTeacher[epoch] = correct_t/traDat.shape[0]*100
+        classificationAccuTrainStudent[epoch] = correct_s/len(traDataLoad.dataset)*100
+        classificationAccuTrainTeacher[epoch] = correct_t/len(traDataLoad.dataset)*100
 
         # validation loss and accuracy
-        _, classificationLossTestStudent[epoch], classificationAccuTestStudent[epoch] = test(student,device,valDat,valLab,classification_loss,512)
-        _, classificationLossTestTeacher[epoch], classificationAccuTestTeacher[epoch] = test(teacher,device,valDat,valLab,classification_loss,512)
+        _, classificationLossTestStudent[epoch], classificationAccuTestStudent[epoch] = test(student,device,valDataLoad,classification_loss)
+        _, classificationLossTestTeacher[epoch], classificationAccuTestTeacher[epoch] = test(teacher,device,valDataLoad,classification_loss)
 
         # print
         print('Epoch %d:' % (epoch+1))
