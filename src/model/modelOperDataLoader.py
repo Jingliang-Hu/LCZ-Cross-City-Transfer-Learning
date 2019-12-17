@@ -24,12 +24,12 @@ def calculateEMAAlpha(currentEpoch, maxEpoch,maxAlpha):
     return np.exp(-5*np.square(1-np.float(tmp)/np.float(maxEpoch)))*maxAlpha
 
 
-def test(model,device,valDataLoader,criterion):
+def test(model,device,valDataset,criterion):
     '''
     Input:
             - model         -- pytorch model
             - device        -- defined cpu or gpu device
-            - valDataLoader -- pytorch data loader for testing
+            - valDataset -- pytorch dataset for dataLoader
             - criterion     -- objective function for optimization                  (default cross entropy)
     Output:
             - pred          -- prediction of input data using model
@@ -40,36 +40,45 @@ def test(model,device,valDataLoader,criterion):
     model.eval()
     testLoss = 0.0
     accuracy = 0.0 # overall accuracy
-    pred = np.zeros_like(lab)
-
+    correct_nb = 0.0
+    batch_size=256
+    valDataLoader = torch.utils.data.DataLoader(valDataset, batch_size)
+    pred = np.zeros_like(len(valDataset))
     with torch.no_grad():
-        for inDat, inLab in valDataLoader:
-            inDat = inDat.cuda(device)
-            inLab = inLab.cuda(device)
+        for i_batch, sample in enumerate(valDataLoader):
+            inDat = sample['data'].to(device,dtype=torch.float)
+            inLab = sample['label'].to(device,dtype=torch.float)
+            inLab = torch.max(inLab,1)[1]
+            print(torch.unique(inLab))
+
             # predicting
             output = model(inDat) 
             # prediction error
             loss = criterion(output, inLab)
             testLoss += loss.item()*inDat.size(0)
             predTmp = output.argmax(dim=1, keepdim=True) # get the index of the max log-probability 
-            pred[idx] = np.squeeze(predTmp.cpu().numpy())
+            print(torch.unique(predTmp))
+            correct_nb += predTmp.eq(inLab).sum().item()
+            if batch_size==np.squeeze(predTmp.cpu().numpy()).shape[0]:
+                pred[i_batch*batch_size:(i_batch+1)*batch_size] = np.squeeze(predTmp.cpu().numpy())
+            else:
+                pred[i_batch*batch_size:] = np.squeeze(predTmp.cpu().numpy())
     testLoss = testLoss / valDataLoader.__len__()
-    lab = lab.numpy()
-    accuracy = np.sum(pred==lab)/valDataLoader.__len__()*100
+    accuracy = correct_nb/valDataLoader.__len__()*100
     return pred, testLoss, accuracy 
 
 
-def train(model,device,optimizer,traDatLoad,criterion = nn.CrossEntropyLoss(),numBatch=64, numEpoch=100, valDatLoad):
+def train(model,device,optimizer,traDataset,criterion,numBatch, numEpoch, valDataset):
     '''
     Input:
 	- model 	-- pytorch model
 	- device 	-- defined cpu or gpu device
 	- optimizer	-- optimizer
-	- traDat 	-- pytorch data loader for training
+	- traDataset 	-- pytorch dataset for training
 	- criterion	-- objective function for optimization 			(default cross entropy)
 	- numBatch 	-- number of samples in a batch				(default 64)
 	- numEpoch 	-- number of epoch for training				(default 200)
-	- valDat 	-- pytorch data loader for validation data  
+	- valDataset 	-- pytorch dataset for validation data  
 	- lrChg 	-- is learning rate changable				(default False)
 	- earlyStop 	-- apply earlyStop or not 				(default False)
 	- numPatient	-- patient number for early stop 			(default 20)
@@ -87,6 +96,7 @@ def train(model,device,optimizer,traDatLoad,criterion = nn.CrossEntropyLoss(),nu
     traArry = np.zeros((numEpoch))
     valLoss = np.zeros((numEpoch))
     valArry = np.zeros((numEpoch))
+    traDatLoad = torch.utils.data.DataLoader(traDataset, batch_size=numBatch, shuffle=True)
 
 
     # training
@@ -94,10 +104,11 @@ def train(model,device,optimizer,traDatLoad,criterion = nn.CrossEntropyLoss(),nu
         running_loss = 0.0
         correct = 0.0
         
-        for inDat, inLab in traDatLoad:
-            inDat = inDat.to(device)
-            inLab = inLab.to(device)
-
+        for i_batch, sample in enumerate(traDatLoad):
+            inDat = sample['data'].to(device,dtype=torch.float)
+            inLab = sample['label'].to(device,dtype=torch.float)
+            inLab = torch.max(inLab,1)[1]
+            print('.')
             # zero the parameter gradients for each minibatch
             optimizer.zero_grad()
             # forward
@@ -118,7 +129,7 @@ def train(model,device,optimizer,traDatLoad,criterion = nn.CrossEntropyLoss(),nu
         traLoss[epoch] = running_loss/traDatLoad.__len__()
         traArry[epoch] = correct/traDatLoad.__len__()*100
         # validation loss and accuracy
-        _, valLoss[epoch], valArry[epoch] = test(model,device,valDat,criterion)
+        _, valLoss[epoch], valArry[epoch] = test(model,device,valDataset,criterion)
         # print
         print('epoch %d: training loss: %.4f; training acc: %.2f; validation loss: %.4f; validation acc: %.2f' % (epoch+1, traLoss[epoch], traArry[epoch],valLoss[epoch],valArry[epoch]))
 

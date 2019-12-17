@@ -39,10 +39,12 @@ class LCZDataset(Dataset):
     """
     pytorch iterative data loader costomized to lcz data
     """
-    def __init__(self, dataFile, dataFlag, transform=None):
+    def __init__(self, dataFile, dataFlag, transform=transforms.Compose([ToTensor()])):
         self.dataFile = dataFile
         self.dataFlag = dataFlag
         self.transform = transform
+        self.loadData()
+
 
 
     def __len__(self):
@@ -52,55 +54,54 @@ class LCZDataset(Dataset):
         del fid
         return nb_sample
 
+    def nbChannel(self):
+        fid = h5py.File(self.dataFile)
+        if self.dataFlag == 1:
+            nb_channel = np.array(fid['x_1']).shape[3]
+        elif self.dataFlag ==2:
+            nb_channel = np.array(fid['x_2']).shape[3]
+        fid.close()
+        del fid
+        return nb_channel
+
+    def loadData(self):
+        fid = h5py.File(self.dataFile)
+        self.label = np.array(fid['y'])
+        if self.dataFlag == 1:
+           self.data = np.array(fid['x_1'])
+        elif self.dataFlag == 2:
+           self.data = np.array(fid['x_2'])
+        fid.close()
+        del fid
+
+
+
     def __getitem__(self,idx):
         if torch.is_tensor(idx):
             idx = idx.tolist()
-        fid = h5py.File(self.dataFile)
-        if self.dataFlag == 0:
-            data_1 = np.array(fid['x_1'])[idx,:,:,:]
-            data_2 = np.array(fid['x_2'])[idx,:,:,:]
-            label = np.array(fid['y'])[idx,:]
-            sample_1 = {'data': data_1, 'label': label}
-            sample_2 = {'data': data_2, 'label': label}
-            fid.close()
-            del fid
-            if self.transform:
-                sample_1 = self.transform(sample_1)
-                sample_2 = self.transform(sample_2)
-                return sample_1,sample_2
-        elif self.dataFlag == 1:
-            data = np.array(fid['x_1'])[idx,:,:,:]
-            label = np.array(fid['y'])[idx,:]                            
-            sample = {'data': data, 'label': label}
-            fid.close()
-            del fid
-            if self.transform:                            
-                sample = self.transform(sample)
-                return sample
-        elif self.dataFlag == 2:
-            data = np.array(fid['x_2'])[idx,:,:,:]
-            label = np.array(fid['y'])[idx,:]                                                          
-            sample = {'data': data, 'label': label}
-            fid.close()                                                                                
-            del fid                                                                                                            
-            if self.transform:                                                                                                                                     
-                sample = self.transform(sample)
-                return sample
+        data = self.data[idx,:,:,:]
+        label = self.label[idx,:]                            
+        sample = {'data': data, 'label': label}
+        if self.transform:                            
+            sample = self.transform(sample)
+        return sample
 
-def lczIterDataSet(envPath,train,test,datFlag,transform=None):
+
+def lczIterDataSet(envPath,train,test,datFlag,transform=transforms.Compose([ToTensor()])):
     # load training data
     if train=="lcz42":
         datDir = envPath + '/data/train/train.h5'
         trainDataSet = LCZDataset(datDir,datFlag,transform)
     else:
-        datFile = envPath+'/data/test/'+cityName+'.h5'
+        datDir = envPath+'/data/test/'+train+'.h5'
         trainDataSet = LCZDataset(datDir,datFlag,transform)
     # load testing data
     if test=="cul10":
-        datFile = envPath+'/data/test/'+cityName+'.h5'
+        print('need a h5 data file including all cultural-10 cities')
+        datDir = envPath+'/data/test/'+test+'.h5'
         testDataSet = LCZDataset(datDir,datFlag,transform)
     else:
-        datFile = envPath+'/data/test/'+cityName+'.h5'
+        datDir = envPath+'/data/test/'+test+'.h5'
         testDataSet = LCZDataset(datDir,datFlag,transform)
         
     return trainDataSet,testDataSet    

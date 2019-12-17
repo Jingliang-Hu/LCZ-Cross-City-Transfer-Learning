@@ -37,7 +37,7 @@ paraDict = {
         "modelName":'resnet18_benchMark', # model name
         }
 
-cudaNow = torch.device('cuda:0')
+cudaNow = torch.device('cuda:2')
 nbBatch = paraDict["nbBatch"]
 nbEpoch = paraDict["nbEpoch"]
 learnRate = paraDict["learningRate"]
@@ -59,8 +59,8 @@ initial folder saving outputs
 STEP ONE: data loading
 '''
 trainDataSet,testDataSet = lczIterDataSet(envPath,paraDict["trainData"],paraDict["testData"],datFlag)
-trainDataLoader = torch.utils.data.DataLoader(trainDataSet, batch_size=nbBatch, shuffle=True)
-testDataLoader = torch.utils.data.DataLoader(trainDataSet, batch_size=512)
+# trainDataLoader = torch.utils.data.DataLoader(trainDataSet, batch_size=nbBatch, shuffle=True)
+# testDataLoader = torch.utils.data.DataLoader(testDataSet, batch_size=512)
 
 '''
 print("data loading...")
@@ -93,7 +93,7 @@ STEP TWO: initial a resnet model
 '''
 sys.path.append(os.path.abspath(envPath+"/src/model"))
 import resnetModel
-resnet = resnetModel.resnet18(pretrained=False, inChannel=x_train.shape[1]).to(cudaNow)
+resnet = resnetModel.resnet18(pretrained=False, inChannel=trainDataSet.nbChannel()).to(cudaNow)
 
 
 '''
@@ -108,13 +108,11 @@ optimizer = optim.Adam(resnet.parameters(), lr=learnRate)
 '''
 STEP FOUR: Train the network
 '''
-trainDataLoader = torch.utils.data.DataLoader(trainDataSet, batch_size=nbBatch, shuffle=True)
-testDataLoader = torch.utils.data.DataLoader(trainDataSet, batch_size=512)
 
 # import modelOperation
 import modelOperDataLoader
 print('Start training ...')
-resnet,traLoss,traArry,valLoss,valArry = modelOperDataLoader.train(resnet,cudaNow,optimizer,trainDataLoader,criterion,nbBatch,nbEpoch,testDataLoader)
+resnet,traLoss,traArry,valLoss,valArry = modelOperDataLoader.train(resnet,cudaNow,optimizer,trainDataSet,criterion,nbBatch,nbEpoch,testDataSet)
 
 '''
 STEP FIVE: Test the network
