@@ -37,7 +37,7 @@ paraDict = {
         "modelName":'resnet18_benchMark', # model name
         }
 
-cudaNow = torch.device('cuda:2')
+cudaNow = torch.device('cuda:0')
 nbBatch = paraDict["nbBatch"]
 nbEpoch = paraDict["nbEpoch"]
 learnRate = paraDict["learningRate"]

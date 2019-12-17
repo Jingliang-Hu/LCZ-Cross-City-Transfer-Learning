@@ -43,28 +43,28 @@ def test(model,device,valDataset,criterion):
     correct_nb = 0.0
     batch_size=256
     valDataLoader = torch.utils.data.DataLoader(valDataset, batch_size)
-    pred = np.zeros_like(len(valDataset))
+    pred = np.zeros((len(valDataset)))
     with torch.no_grad():
         for i_batch, sample in enumerate(valDataLoader):
             inDat = sample['data'].to(device,dtype=torch.float)
             inLab = sample['label'].to(device,dtype=torch.float)
             inLab = torch.max(inLab,1)[1]
-            print(torch.unique(inLab))
-
             # predicting
             output = model(inDat) 
             # prediction error
             loss = criterion(output, inLab)
             testLoss += loss.item()*inDat.size(0)
-            predTmp = output.argmax(dim=1, keepdim=True) # get the index of the max log-probability 
-            print(torch.unique(predTmp))
+
+            _, predTmp = torch.max(output.data, 1) # get the index of the max log-probability 
             correct_nb += predTmp.eq(inLab).sum().item()
+
             if batch_size==np.squeeze(predTmp.cpu().numpy()).shape[0]:
                 pred[i_batch*batch_size:(i_batch+1)*batch_size] = np.squeeze(predTmp.cpu().numpy())
             else:
                 pred[i_batch*batch_size:] = np.squeeze(predTmp.cpu().numpy())
-    testLoss = testLoss / valDataLoader.__len__()
-    accuracy = correct_nb/valDataLoader.__len__()*100
+
+    testLoss = testLoss /len(valDataset) 
+    accuracy = correct_nb/len(valDataset)*100
     return pred, testLoss, accuracy 
 
 
@@ -108,7 +108,6 @@ def train(model,device,optimizer,traDataset,criterion,numBatch, numEpoch, valDat
             inDat = sample['data'].to(device,dtype=torch.float)
             inLab = sample['label'].to(device,dtype=torch.float)
             inLab = torch.max(inLab,1)[1]
-            print('.')
             # zero the parameter gradients for each minibatch
             optimizer.zero_grad()
             # forward
@@ -126,8 +125,8 @@ def train(model,device,optimizer,traDataset,criterion,numBatch, numEpoch, valDat
 
 
         # training loss and accuracy
-        traLoss[epoch] = running_loss/traDatLoad.__len__()
-        traArry[epoch] = correct/traDatLoad.__len__()*100
+        traLoss[epoch] = running_loss/len(traDataset)
+        traArry[epoch] = correct/len(traDataset)*100
         # validation loss and accuracy
         _, valLoss[epoch], valArry[epoch] = test(model,device,valDataset,criterion)
         # print
