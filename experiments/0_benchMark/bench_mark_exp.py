@@ -24,13 +24,14 @@ print("parameter setting...")
 paraDict = {
         ### network parameters
         "nbBatch": 100,
-        "nbEpoch": 100,
+        "nbEpoch": 3,
         "learningRate": 1e-3,
 
         ### data loading parameters
         "trainData": "moscow", # training data could be the training data of LCZ42 data, or data of one of the cultural-10 city
         "testData": "munich",  # testing data could be all the data of the cultural-10 cities, or one of them.
-        "normalization":"ms", # "ms": mean-std normalization, patch-wise
+        "normalization":"cms", # "cms": channel-wise mean-std normalization
+        # "normalization":"pms", # "pms": patch-wise mean-std normalization
         "datFlag":2, # data selection: sentinel-1, sentinel-2, or both
 
         ### model name
@@ -48,45 +49,20 @@ modelName = paraDict["modelName"]
 '''
 initial folder saving outputs
 '''
-# outcomeDir = initialOutputFolder(paraDict)
-# print("Experiments outcomes are saving in the directory: "+outcomeDir)
-## record parameters
-# recordExpParameters(outcomeDir,paraDict)
+outcomeDir = initialOutputFolder(paraDict)
+print("Experiments outcomes are saving in the directory: "+outcomeDir)
+# record parameters
+recordExpParameters(outcomeDir,paraDict)
 
 
 
 '''
 STEP ONE: data loading
 '''
-trainDataSet,testDataSet = lczIterDataSet(envPath,paraDict["trainData"],paraDict["testData"],datFlag)
-# trainDataLoader = torch.utils.data.DataLoader(trainDataSet, batch_size=nbBatch, shuffle=True)
-# testDataLoader = torch.utils.data.DataLoader(testDataSet, batch_size=512)
+trainDataSet,testDataSet = lczIterDataSet(envPath,paraDict["trainData"],paraDict["testData"],datFlag,paraDict["normalization"])
+trainDataLoader = torch.utils.data.DataLoader(trainDataSet, batch_size=nbBatch, shuffle=True)
+testDataLoader = torch.utils.data.DataLoader(testDataSet, batch_size=512)
 
-'''
-print("data loading...")
-x_train,y_train,x_test, y_test = lczLoader(envPath,paraDict["trainData"],paraDict["testData"],datFlag)
-# Input image dimensions.
-input_shape = x_train.shape[1:]
-# Normalize data.
-if paraDict["normalization"]=="ms":
-    print("data normalization...")
-    x_train = mean_Std_Normalization(x_train)
-    x_test = mean_Std_Normalization(x_test)
-
-
-# convert numpy to pytorch float tensor
-x_train = torch.from_numpy(x_train).type('torch.FloatTensor')
-y_train = torch.from_numpy(y_train).type('torch.LongTensor')
-y_train = torch.max(y_train,1)[1]
-x_test = torch.from_numpy(x_test).type('torch.FloatTensor')
-y_test = torch.from_numpy(y_test).type('torch.LongTensor')
-y_test = torch.max(y_test,1)[1]
-
-print('x_train shape:', x_train.shape)
-print(x_train.shape[0], 'train samples')
-print(x_test.shape[0], 'test samples')
-print('y_train shape:', y_train.shape)
-'''
 
 '''
 STEP TWO: initial a resnet model
@@ -94,7 +70,6 @@ STEP TWO: initial a resnet model
 sys.path.append(os.path.abspath(envPath+"/src/model"))
 import resnetModel
 resnet = resnetModel.resnet18(pretrained=False, inChannel=trainDataSet.nbChannel()).to(cudaNow)
-
 
 '''
 STEP THREE: Define a loss function and optimizer
@@ -112,7 +87,7 @@ STEP FOUR: Train the network
 # import modelOperation
 import modelOperDataLoader
 print('Start training ...')
-resnet,traLoss,traArry,valLoss,valArry = modelOperDataLoader.train(resnet,cudaNow,optimizer,trainDataSet,criterion,nbBatch,nbEpoch,testDataSet)
+resnet,traLoss,traArry,valLoss,valArry = modelOperDataLoader.train(resnet,cudaNow,optimizer,trainDataLoader,criterion,nbBatch,nbEpoch,testDataLoader)
 
 '''
 STEP FIVE: Test the network

@@ -39,12 +39,24 @@ class LCZDataset(Dataset):
     """
     pytorch iterative data loader costomized to lcz data
     """
-    def __init__(self, dataFile, dataFlag, transform=transforms.Compose([ToTensor()])):
+    def __init__(self, dataFile, dataFlag, normalization, transform=transforms.Compose([ToTensor()])):
         self.dataFile = dataFile
         self.dataFlag = dataFlag
         self.transform = transform
         self.loadData()
+        self.normalization = normalization
+        self.dataNormalization()
 
+
+    def dataNormalization(self):
+        if self.normalization=='pms':
+            print("patch-wise mean standard deviation normalization")
+            self.data = patch_mean_Std_Normalization(self.data)
+        elif self.normalization=='cms':
+            print("channel-wise mean standard deviation normalization")
+            self.data = channel_mean_Std_Normalization(self.data)       
+        else:
+            print("no normalization is carried out")
 
 
     def __len__(self):
@@ -87,22 +99,22 @@ class LCZDataset(Dataset):
         return sample
 
 
-def lczIterDataSet(envPath,train,test,datFlag,transform=transforms.Compose([ToTensor()])):
+def lczIterDataSet(envPath,train,test,datFlag,normalization,transform=transforms.Compose([ToTensor()])):
     # load training data
     if train=="lcz42":
         datDir = envPath + '/data/train/train.h5'
-        trainDataSet = LCZDataset(datDir,datFlag,transform)
+        trainDataSet = LCZDataset(datDir,datFlag,normalization,transform)
     else:
         datDir = envPath+'/data/test/'+train+'.h5'
-        trainDataSet = LCZDataset(datDir,datFlag,transform)
+        trainDataSet = LCZDataset(datDir,datFlag,normalization,transform)
     # load testing data
     if test=="cul10":
         print('need a h5 data file including all cultural-10 cities')
         datDir = envPath+'/data/test/'+test+'.h5'
-        testDataSet = LCZDataset(datDir,datFlag,transform)
+        testDataSet = LCZDataset(datDir,datFlag,normalization,transform)
     else:
         datDir = envPath+'/data/test/'+test+'.h5'
-        testDataSet = LCZDataset(datDir,datFlag,transform)
+        testDataSet = LCZDataset(datDir,datFlag,normalization,transform)
         
     return trainDataSet,testDataSet    
 
@@ -143,11 +155,19 @@ def recordExpParameters(outcomeDir,paraDict):
 
 
 
-def mean_Std_Normalization(x):
+def patch_mean_Std_Normalization(x):
     print("mean standard deviation normalization")
     x = x - x.mean(axis=(1,2,3),keepdims=True)
     x = x/x.std(axis=(1,2,3),keepdims=True)
     return x
+
+def channel_mean_Std_Normalization(x):
+    print("mean standard deviation normalization")
+    x = x - x.mean(axis=(0,2,3),keepdims=True)
+    x = x/x.std(axis=(0,2,3),keepdims=True)
+    return x
+
+
 
 
 

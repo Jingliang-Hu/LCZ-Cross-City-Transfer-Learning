@@ -24,12 +24,12 @@ def calculateEMAAlpha(currentEpoch, maxEpoch,maxAlpha):
     return np.exp(-5*np.square(1-np.float(tmp)/np.float(maxEpoch)))*maxAlpha
 
 
-def test(model,device,valDataset,criterion):
+def test(model,device,valDataLoader,criterion):
     '''
     Input:
             - model         -- pytorch model
             - device        -- defined cpu or gpu device
-            - valDataset -- pytorch dataset for dataLoader
+            - valDataLoader -- pytorch dataloader for testing data
             - criterion     -- objective function for optimization                  (default cross entropy)
     Output:
             - pred          -- prediction of input data using model
@@ -41,9 +41,8 @@ def test(model,device,valDataset,criterion):
     testLoss = 0.0
     accuracy = 0.0 # overall accuracy
     correct_nb = 0.0
-    batch_size=256
-    valDataLoader = torch.utils.data.DataLoader(valDataset, batch_size)
-    pred = np.zeros((len(valDataset)))
+    pred = np.zeros((len(valDataLoader.dataset)))
+    batch_size = valDataLoader.batch_size
     with torch.no_grad():
         for i_batch, sample in enumerate(valDataLoader):
             inDat = sample['data'].to(device,dtype=torch.float)
@@ -63,25 +62,22 @@ def test(model,device,valDataset,criterion):
             else:
                 pred[i_batch*batch_size:] = np.squeeze(predTmp.cpu().numpy())
 
-    testLoss = testLoss /len(valDataset) 
-    accuracy = correct_nb/len(valDataset)*100
+    testLoss = testLoss/len(valDataLoader.dataset) 
+    accuracy = correct_nb/len(valDataLoader.dataset)*100
     return pred, testLoss, accuracy 
 
 
-def train(model,device,optimizer,traDataset,criterion,numBatch, numEpoch, valDataset):
+def train(model,device,optimizer,traDataLoader,criterion,numBatch, numEpoch, valDataLoader):
     '''
     Input:
 	- model 	-- pytorch model
 	- device 	-- defined cpu or gpu device
 	- optimizer	-- optimizer
-	- traDataset 	-- pytorch dataset for training
+	- traDataLoader	-- pytorch dataloader for training
 	- criterion	-- objective function for optimization 			(default cross entropy)
 	- numBatch 	-- number of samples in a batch				(default 64)
 	- numEpoch 	-- number of epoch for training				(default 200)
-	- valDataset 	-- pytorch dataset for validation data  
-	- lrChg 	-- is learning rate changable				(default False)
-	- earlyStop 	-- apply earlyStop or not 				(default False)
-	- numPatient	-- patient number for early stop 			(default 20)
+	- valDataLoader	-- pytorch dataloader for validation data  
     Output:
 	- model 	-- trained pytorch model
 	- traLoss 	-- mean loss of batches
@@ -96,15 +92,14 @@ def train(model,device,optimizer,traDataset,criterion,numBatch, numEpoch, valDat
     traArry = np.zeros((numEpoch))
     valLoss = np.zeros((numEpoch))
     valArry = np.zeros((numEpoch))
-    traDatLoad = torch.utils.data.DataLoader(traDataset, batch_size=numBatch, shuffle=True)
 
-
+    print(" ----------------------------------------- ")
     # training
     for epoch in range(numEpoch):
         running_loss = 0.0
         correct = 0.0
-        
-        for i_batch, sample in enumerate(traDatLoad):
+        print("Number of batches (%d in total): " % (len(traDataLoader))) 
+        for i_batch, sample in tqdm(enumerate(traDataLoader)):
             inDat = sample['data'].to(device,dtype=torch.float)
             inLab = sample['label'].to(device,dtype=torch.float)
             inLab = torch.max(inLab,1)[1]
@@ -125,10 +120,10 @@ def train(model,device,optimizer,traDataset,criterion,numBatch, numEpoch, valDat
 
 
         # training loss and accuracy
-        traLoss[epoch] = running_loss/len(traDataset)
-        traArry[epoch] = correct/len(traDataset)*100
+        traLoss[epoch] = running_loss/len(traDataLoader.dataset)
+        traArry[epoch] = correct/len(traDataLoader.dataset)*100
         # validation loss and accuracy
-        _, valLoss[epoch], valArry[epoch] = test(model,device,valDataset,criterion)
+        _, valLoss[epoch], valArry[epoch] = test(model,device,valDataLoader,criterion)
         # print
         print('epoch %d: training loss: %.4f; training acc: %.2f; validation loss: %.4f; validation acc: %.2f' % (epoch+1, traLoss[epoch], traArry[epoch],valLoss[epoch],valArry[epoch]))
 
