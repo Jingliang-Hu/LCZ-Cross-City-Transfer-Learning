@@ -23,6 +23,6 @@ trained_models
 
 # ignore experiment output
 **/*outcome*
-
+**/*backup*
 
 
