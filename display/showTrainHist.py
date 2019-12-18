@@ -17,7 +17,7 @@ bench mark training history
 '''
 # benchHistFile = '/data/hu/TF/experiments/0_benchMark/resnet_benchMark_tr_lcz42_te_cul10_outcome_2019-12-13_13:40:31/training_history.h5'
 # benchHistFile = '/data/Projects/TF/experiments/0_benchMark/resnet_benchMark_tr_moscow_te_munich_outcome_2019-12-14_14-32-43'
-benchHistFile = '/data/Projects/TF/experiments/0_benchMark/resnet_benchMark_tr_moscow_te_munich_outcome_2019-12-13_12-33-55'
+benchHistFile = '/data/Projects/TF/experiments/0_benchMark/resnet18_benchMark_tr_moscow_te_munich_outcome_2019-12-17_13-38-35'
 
 
 fid = h5py.File(os.path.join(benchHistFile,'training_history.h5'),'r')
@@ -31,6 +31,7 @@ epoch = range(1,traArry.shape[0]+1)
 
 plt.plot(epoch, traArry, 'r', epoch, valArry, 'b')
 plt.legend(('training accuracy', 'test accuracy'), shadow=True)
+plt.ylim([0,100])
 plt.xlim([1,traArry.shape[0]+1])
 plt.grid(True)
 plt.xlabel('Epoch')
@@ -46,6 +47,45 @@ plt.xlabel('Epoch')
 plt.ylabel('Loss')
 plt.savefig(os.path.join(benchHistFile,'ResNet_bench_loss.png'),dpi=300)
 plt.show()
+
+
+
+import glob
+import os
+files = glob.glob('/data/Projects/TF/experiments/0_benchMark/resnet18_benchMark_tr_moscow_te_munich_*')
+testArryMean = np.zeros((5,100))
+for i in range(len(files)):
+    fid = h5py.File(os.path.join(files[i],'training_history.h5'),'r')
+    testArryMean[i,:] = np.array(fid['valArry'])
+    fid.close
+    del fid
+
+fid = h5py.File('/data/Projects/TF/experiments/0_benchMark/summary/mean.h5','w')
+fid.create_dataset('testArryMean',data=testArryMean)
+fid.close()
+epoch = np.linspace(1,testArryMean.shape[1],100)
+
+plt.plot(epoch, testArryMean.mean(axis=0), 'b')
+plt.legend('mean test accuracy', shadow=True)
+plt.ylim([0,100])
+plt.xlim([1,traArry.shape[0]+1])
+plt.grid(True)
+plt.xlabel('Epoch')
+plt.ylabel('Accuracy in percentage')
+plt.savefig('/data/Projects/TF/experiments/0_benchMark/summary/meanTestAcc.png',dpi=300)
+plt.show()
+
+plt.errorbar(epoch,testArryMean.mean(axis=0),testArryMean.std(axis=0))
+plt.legend('mean test accuracy', shadow=True)
+plt.ylim([0,100])
+plt.xlim([1,traArry.shape[0]+1])
+plt.grid(True)
+plt.xlabel('Epoch')
+plt.ylabel('Accuracy in percentage')
+plt.savefig('/data/Projects/TF/experiments/0_benchMark/summary/meanTestAccError.png',dpi=300)
+plt.show()
+
+
 
 
 '''

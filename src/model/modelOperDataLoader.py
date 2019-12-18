@@ -7,7 +7,7 @@ sys.path.insert(0,'../io')
 import dataReader
 import numpy as np
 from tqdm import tqdm
-
+from itertools import product
 
 def weightOfConsistentLoss(currentEpoch, maxEpoch):
     '''
@@ -24,6 +24,41 @@ def calculateEMAAlpha(currentEpoch, maxEpoch,maxAlpha):
     return np.exp(-5*np.square(1-np.float(tmp)/np.float(maxEpoch)))*maxAlpha
 
 
+def confusionMatrix(model,device,testDataLoad,criterion):
+    model.eval()
+    nb_class = testDataLoad.dataset.label.shape[1]
+    confusion_matrix = np.zeros((nb_class,nb_class))
+    with torch.no_grad():
+        for i_batch, sample in enumerate(testDataLoad):
+            inDat = sample['data'].to(device,dtype=torch.float)
+            inLab = sample['label'].to(device,dtype=torch.float)
+            inLab = torch.max(inLab,1)[1]
+            # predicting
+            output = model(inDat)
+            _, pred = torch.max(output.data, 1) # get the index of the max log-probability 
+            for l, p in zip(inLab.view(-1), pred.view(-1)):
+                confusion_matrix[l.long(), p.long()] += 1
+
+    pa = np.diagonal(confusion_matrix)/np.sum(confusion_matrix,1)
+    ua = np.diagonal(confusion_matrix)/np.sum(confusion_matrix,0)
+    oa = np.trace(confusion_matrix)/np.sum(confusion_matrix)
+    aa = np.sum(pa[~np.isnan(pa)])/np.sum(~np.isnan(pa))
+    # kappa coefficient
+    po = oa
+    pe = np.sum(np.sum(confusion_matrix,0)*np.sum(confusion_matrix,1))/np.square(np.sum(confusion_matrix))
+    ka = (po-pe)/(1-pe)
+    print("Number of test samples: %d" %(len(testDataLoad.dataset)))
+    print("Overall accuracy: %.4f; Average accuracy: %.4f " %(oa, aa))
+    print("Producer accuracy: ")
+    print(pa)
+    print("User accuracy: " )
+    print(ua)
+    return confusion_matrix,oa,aa,ka,pa,ua
+
+
+
+
+
 def test(model,device,valDataLoader,criterion):
     '''
     Input:
@@ -38,9 +73,11 @@ def test(model,device,valDataLoader,criterion):
     '''
 
     model.eval()
+    nb_class = valDataLoader.dataset.label.shape[1]
+    confusion_matrix = np.zeros((nb_class,nb_class))
+
     testLoss = 0.0
     accuracy = 0.0 # overall accuracy
-    correct_nb = 0.0
     pred = np.zeros((len(valDataLoader.dataset)))
     batch_size = valDataLoader.batch_size
     with torch.no_grad():
@@ -55,7 +92,8 @@ def test(model,device,valDataLoader,criterion):
             testLoss += loss.item()*inDat.size(0)
 
             _, predTmp = torch.max(output.data, 1) # get the index of the max log-probability 
-            correct_nb += predTmp.eq(inLab).sum().item()
+            for l, p in zip(inLab.view(-1), predTmp.view(-1)):
+                confusion_matrix[l.long(), p.long()] += 1
 
             if batch_size==np.squeeze(predTmp.cpu().numpy()).shape[0]:
                 pred[i_batch*batch_size:(i_batch+1)*batch_size] = np.squeeze(predTmp.cpu().numpy())
@@ -63,8 +101,12 @@ def test(model,device,valDataLoader,criterion):
                 pred[i_batch*batch_size:] = np.squeeze(predTmp.cpu().numpy())
 
     testLoss = testLoss/len(valDataLoader.dataset) 
-    accuracy = correct_nb/len(valDataLoader.dataset)*100
-    return pred, testLoss, accuracy 
+    accuracy = np.trace(confusion_matrix)/len(valDataLoader.dataset)*100
+    pa = np.diagonal(confusion_matrix)/np.sum(confusion_matrix,1)
+    averacc = np.sum(pa[~np.isnan(pa)])/np.sum(~np.isnan(pa))
+
+
+    return pred, testLoss, accuracy, averacc
 
 
 def train(model,device,optimizer,traDataLoader,criterion,numBatch, numEpoch, valDataLoader):
@@ -92,7 +134,7 @@ def train(model,device,optimizer,traDataLoader,criterion,numBatch, numEpoch, val
     traArry = np.zeros((numEpoch))
     valLoss = np.zeros((numEpoch))
     valArry = np.zeros((numEpoch))
-
+    valAver = np.zeros((numEpoch))
     print(" ----------------------------------------- ")
     # training
     for epoch in range(numEpoch):
@@ -123,12 +165,12 @@ def train(model,device,optimizer,traDataLoader,criterion,numBatch, numEpoch, val
         traLoss[epoch] = running_loss/len(traDataLoader.dataset)
         traArry[epoch] = correct/len(traDataLoader.dataset)*100
         # validation loss and accuracy
-        _, valLoss[epoch], valArry[epoch] = test(model,device,valDataLoader,criterion)
+        _, valLoss[epoch], valArry[epoch], valAver[epoch] = test(model,device,valDataLoader,criterion)
         # print
-        print('epoch %d: training loss: %.4f; training acc: %.2f; validation loss: %.4f; validation acc: %.2f' % (epoch+1, traLoss[epoch], traArry[epoch],valLoss[epoch],valArry[epoch]))
+        print('epoch %d: training loss: %.4f; training acc: %.2f; validation loss: %.4f; validation acc: %.2f; validation average acc: %.2f' % (epoch+1, traLoss[epoch], traArry[epoch],valLoss[epoch],valArry[epoch],valAver[epoch]*1e4))
 
     print(' --- training done --- ')
-    return model,traLoss,traArry,valLoss,valArry
+    return model,traLoss,traArry,valLoss,valArry,valAver
 
 
 
@@ -292,6 +334,12 @@ def domainMeanTeacher_Train(student,teacher,device,traDataLoad,optimizer,valData
     # testing student classification accuracy
     classificationAccuTestStudent = np.zeros((numEpoch))
 
+    # testing teacher classification average accuracy
+    classificationAverAccuTestTeacher = np.zeros((numEpoch))
+    # testing student classification average accuracy
+    classificationAverAccuTestStudent = np.zeros((numEpoch))
+
+
     '''
     start training 
     '''
@@ -366,20 +414,21 @@ def domainMeanTeacher_Train(student,teacher,device,traDataLoad,optimizer,valData
         classificationAccuTrainTeacher[epoch] = correct_t/len(traDataLoad.dataset)*100
         
         # validation loss and accuracy
-        _, classificationLossTestStudent[epoch], classificationAccuTestStudent[epoch] = test(student,device,valDataLoad,classification_loss)
-        _, classificationLossTestTeacher[epoch], classificationAccuTestTeacher[epoch] = test(teacher,device,valDataLoad,classification_loss)
+        _, classificationLossTestStudent[epoch], classificationAccuTestStudent[epoch],classificationAverAccuTestStudent[epoch] = test(student,device,valDataLoad,classification_loss)
+        _, classificationLossTestTeacher[epoch], classificationAccuTestTeacher[epoch],classificationAverAccuTestTeacher[epoch] = test(teacher,device,valDataLoad,classification_loss)
          
+
         # print
         print('Epoch %d:' % (epoch+1))
         #print('Total loss = classification loss + weight of consistent loss * consistent loss: %.4f = %.4f + %.4f * %.4f' % (classificationLossTrainStudent[epoch] + consistentLossWeight[epoch] * consistentLossTrain[epoch], classificationLossTrainStudent[epoch], consistentLossWeight[epoch], consistentLossTrain[epoch]))
         print('Total loss (%.4f) = classification loss (%.4f) + weight of consistent loss (%.4f) * consistent loss (%.4f)' % (classificationLossTrainStudent[epoch] + consistentLossWeight[epoch] * consistentLossTrain[epoch], classificationLossTrainStudent[epoch], consistentLossWeight[epoch], consistentLossTrain[epoch]))
         print('Alpha in EMA: %.6f' % (alpha[epoch]))
-        print('Student model: training loss: %.4f; training acc: %.2f; testing loss: %.4f; testing acc: %.2f' % (classificationLossTrainStudent[epoch], classificationAccuTrainStudent[epoch],classificationLossTestStudent[epoch],classificationAccuTestStudent[epoch]))
-        print('Teacher model: training loss: %.4f; training acc: %.2f; testing loss: %.4f; testing acc: %.2f' % (classificationLossTrainTeacher[epoch], classificationAccuTrainTeacher[epoch],classificationLossTestTeacher[epoch],classificationAccuTestTeacher[epoch]))
+        print('Student model: training loss: %.4f; training acc: %.2f; testing loss: %.4f; testing acc: %.2f; testing average acc: %.2f' % (classificationLossTrainStudent[epoch], classificationAccuTrainStudent[epoch],classificationLossTestStudent[epoch],classificationAccuTestStudent[epoch],classificationAverAccuTestStudent[epoch]))
+        print('Teacher model: training loss: %.4f; training acc: %.2f; testing loss: %.4f; testing acc: %.2f; testing average acc: %.2f' % (classificationLossTrainTeacher[epoch], classificationAccuTrainTeacher[epoch],classificationLossTestTeacher[epoch],classificationAccuTestTeacher[epoch],classificationAverAccuTestTeacher[epoch]))
         
         
     print(' --- training done --- ')
-    return student,teacher,classificationLossTrainStudent,classificationAccuTrainStudent,classificationLossTestStudent,classificationAccuTestStudent,classificationLossTrainTeacher,classificationAccuTrainTeacher,classificationLossTestTeacher,classificationAccuTestTeacher,consistentLossTrain, consistentLossWeight, alpha
+    return student,teacher,classificationLossTrainStudent,classificationAccuTrainStudent,classificationLossTestStudent,classificationAccuTestStudent,classificationLossTrainTeacher,classificationAccuTrainTeacher,classificationLossTestTeacher,classificationAccuTestTeacher,consistentLossTrain, consistentLossWeight, alpha, classificationAverAccuTestStudent, classificationAverAccuTestTeacher
 
 
 
@@ -428,6 +477,12 @@ def domainMeanTeacherConfidence_Train(student,teacher,device,traDataLoad,optimiz
     classificationAccuTestTeacher = np.zeros((numEpoch))
     # testing student classification accuracy
     classificationAccuTestStudent = np.zeros((numEpoch))
+
+    # testing teacher classification average accuracy
+    classificationAverAccuTestTeacher = np.zeros((numEpoch))
+    # testing student classification average accuracy
+    classificationAverAccuTestStudent = np.zeros((numEpoch))
+
 
     '''
     start training 
@@ -505,25 +560,119 @@ def domainMeanTeacherConfidence_Train(student,teacher,device,traDataLoad,optimiz
         classificationAccuTrainStudent[epoch] = correct_s/len(traDataLoad.dataset)*100
         classificationAccuTrainTeacher[epoch] = correct_t/len(traDataLoad.dataset)*100
 
+
+
+
+
         # validation loss and accuracy
-        _, classificationLossTestStudent[epoch], classificationAccuTestStudent[epoch] = test(student,device,valDataLoad,classification_loss)
-        _, classificationLossTestTeacher[epoch], classificationAccuTestTeacher[epoch] = test(teacher,device,valDataLoad,classification_loss)
+        _, classificationLossTestStudent[epoch], classificationAccuTestStudent[epoch], classificationAverAccuTestStudent[epoch] = test(student,device,valDataLoad,classification_loss)
+        _, classificationLossTestTeacher[epoch], classificationAccuTestTeacher[epoch], classificationAverAccuTestTeacher[epoch] = test(teacher,device,valDataLoad,classification_loss)
 
         # print
         print('Epoch %d:' % (epoch+1))
         #print('Total loss = classification loss + weight of consistent loss * consistent loss: %.4f = %.4f + %.4f * %.4f' % (classificationLossTrainStudent[epoch] + consistentLossWeight[epoch] * consistentLossTrain[epoch], classificationLossTrainStudent[epoch], consistentLossWeight[epoch], consistentLossTrain[epoch]))
         print('Total loss (%.4f) = classification loss (%.4f) +  consistent loss (%.4f)' % (classificationLossTrainStudent[epoch] + consistentLossTrain[epoch], classificationLossTrainStudent[epoch], consistentLossTrain[epoch]))
         print('Alpha in EMA: %.6f' % (alpha[epoch]))
-        print('Student model: training loss: %.4f; training acc: %.2f; testing loss: %.4f; testing acc: %.2f' % (classificationLossTrainStudent[epoch], classificationAccuTrainStudent[epoch],classificationLossTestStudent[epoch],classificationAccuTestStudent[epoch]))
-        print('Teacher model: training loss: %.4f; training acc: %.2f; testing loss: %.4f; testing acc: %.2f' % (classificationLossTrainTeacher[epoch], classificationAccuTrainTeacher[epoch],classificationLossTestTeacher[epoch],classificationAccuTestTeacher[epoch]))
+        print('Student model: training loss: %.4f; training acc: %.2f; testing loss: %.4f; testing acc: %.2f; testing average acc: %.2f' % (classificationLossTrainStudent[epoch], classificationAccuTrainStudent[epoch],classificationLossTestStudent[epoch],classificationAccuTestStudent[epoch],classificationAverAccuTestStudent[epoch]))
+        print('Teacher model: training loss: %.4f; training acc: %.2f; testing loss: %.4f; testing acc: %.2f; testing average acc: %.2f' % (classificationLossTrainTeacher[epoch], classificationAccuTrainTeacher[epoch],classificationLossTestTeacher[epoch],classificationAccuTestTeacher[epoch],classificationAverAccuTestTeacher[epoch]))
 
 
     print(' --- training done --- ')
-    return student,teacher,classificationLossTrainStudent,classificationAccuTrainStudent,classificationLossTestStudent,classificationAccuTestStudent,classificationLossTrainTeacher,classificationAccuTrainTeacher,classificationLossTestTeacher,classificationAccuTestTeacher,consistentLossTrain, consistentLossWeight, alpha
+    return student,teacher,classificationLossTrainStudent,classificationAccuTrainStudent,classificationLossTestStudent,classificationAccuTestStudent,classificationLossTrainTeacher,classificationAccuTrainTeacher,classificationLossTestTeacher,classificationAccuTestTeacher,consistentLossTrain, consistentLossWeight, alpha, classificationAverAccuTestStudent, classificationAverAccuTestTeacher
 
 
 
 
+class ConfusionMatrixDisplay(object):
+    """Confusion Matrix visualization.
+    Parameters
+    ----------
+    confusion_matrix : ndarray of shape (n_classes, n_classes)
+        Confusion matrix.
+    display_labels : ndarray of shape (n_classes,)
+        Display labels for plot.
+    Attributes
+    ----------
+    im_ : matplotlib AxesImage
+        Image representing the confusion matrix.
+    text_ : ndarray of shape (n_classes, n_classes), dtype=matplotlib Text, \
+            or None
+        Array of matplotlib axes. `None` if `include_values` is false.
+    ax_ : matplotlib Axes
+        Axes with confusion matrix.
+    figure_ : matplotlib Figure
+        Figure containing the confusion matrix.
+    """
+    def __init__(self, confusion_matrix, display_labels):
+        self.confusion_matrix = confusion_matrix
+        self.display_labels = display_labels
+
+    def plot(self, include_values=True, cmap='viridis',
+             xticks_rotation='horizontal', values_format=None, ax=None):
+        """Plot visualization.
+        Parameters
+        ----------
+        include_values : bool, default=True
+            Includes values in confusion matrix.
+        cmap : str or matplotlib Colormap, default='viridis'
+            Colormap recognized by matplotlib.
+        xticks_rotation : {'vertical', 'horizontal'} or float, \
+                         default='horizontal'
+            Rotation of xtick labels.
+        values_format : str, default=None
+            Format specification for values in confusion matrix. If `None`,
+            the format specification is '.2f' for a normalized matrix, and
+            'd' for a unnormalized matrix.
+        ax : matplotlib axes, default=None
+            Axes object to plot on. If `None`, a new figure and axes is
+            created.
+        Returns
+        -------
+        display : :class:`~sklearn.metrics.ConfusionMatrixDisplay`
+        """
+        import matplotlib.pyplot as plt
+        from itertools import product
+
+        if ax is None:
+            fig, ax = plt.subplots()
+        else:
+            fig = ax.figure
+        fig.set_size_inches(18, 16)
+        cm = self.confusion_matrix
+        n_classes = cm.shape[0]
+        self.im_ = ax.imshow(cm, interpolation='nearest', cmap=cmap)
+        self.text_ = None
+
+        cmap_min, cmap_max = self.im_.cmap(0), self.im_.cmap(256)
+
+        if include_values:
+            self.text_ = np.empty_like(cm, dtype=object)
+            if values_format is None:
+                values_format = 'g'
+
+            # print text with appropriate color depending on background
+            thresh = (cm.max() - cm.min()) / 2.
+            for i, j in product(range(n_classes), range(n_classes)):
+                color = cmap_max if cm[i, j] < thresh else cmap_min
+                self.text_[i, j] = ax.text(j, i,
+                                           format(cm[i, j], values_format),
+                                           ha="center", va="center",
+                                           color=color)
+
+        fig.colorbar(self.im_, ax=ax)
+        ax.set(xticks=np.arange(n_classes),
+               yticks=np.arange(n_classes),
+               xticklabels=self.display_labels,
+               yticklabels=self.display_labels,
+               ylabel="True label",
+               xlabel="Predicted label")
+
+        ax.set_ylim((n_classes - 0.5, -0.5))
+        plt.setp(ax.get_xticklabels(), rotation=xticks_rotation)
+
+        self.figure_ = fig
+        self.ax_ = ax
+        return self
 
 
 
