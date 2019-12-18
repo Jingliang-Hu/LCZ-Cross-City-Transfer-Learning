@@ -26,7 +26,7 @@ print("parameter setting...")
 paraDict = {
         ### network parameters
         "nbBatch": 100,
-        "nbEpoch": 3,
+        "nbEpoch": 100,
         "learningRate": 1e-3,
         "maxEpochConsisLossWeight": 50,
         "confidenceModel":0,
@@ -148,6 +148,58 @@ fid.create_dataset('classificationAccuTestStudent',data=classificationAccuTestSt
 fid.create_dataset('classificationAverAccuTestStudent',data=classificationAverAccuTestStudent)
 fid.create_dataset('classificationAverAccuTestTeacher',data=classificationAverAccuTestTeacher)
 fid.close()
+
+
+
+'''
+STEP SEVEN: Predict with the trained teacher model
+'''
+modelPath = os.path.join(outcomeDir,'teacher_model')
+predModel = resnetModel.resnet18(pretrained=False, inChannel=trainDataSet.nbChannel()).to(cudaNow)
+predModel.load_state_dict(torch.load(modelPath,map_location=cudaNow))
+confusion_matrix,oa,aa,ka,pa,ua = modelOperDataLoader.confusionMatrix(predModel,cudaNow,testDataLoader,classification_loss)
+
+# save accuracy
+fid = h5py.File(os.path.join(outcomeDir,'teacher_test_accuracy.h5'),'w')
+fid.create_dataset('confusion_matrix',data=confusion_matrix)
+fid.create_dataset('oa',data=oa)
+fid.create_dataset('aa',data=aa)
+fid.create_dataset('ka',data=ka)
+fid.create_dataset('pa',data=pa)
+fid.create_dataset('ua',data=ua)
+fid.close()
+# plot confusion matrix
+cm_disp_obj = modelOperDataLoader.ConfusionMatrixDisplay(confusion_matrix,np.linspace(1,confusion_matrix.shape[0],confusion_matrix.shape[0]))
+cm_disp = cm_disp_obj.plot()
+cm_disp.figure_.savefig(os.path.join(outcomeDir,'teacher_confusion_matrix.png'))
+
+
+'''
+STEP SEVEN: Predict with the trained student model
+'''
+modelPath = os.path.join(outcomeDir,'student_model')
+predModel = resnetModel.resnet18(pretrained=False, inChannel=trainDataSet.nbChannel()).to(cudaNow)
+predModel.load_state_dict(torch.load(modelPath,map_location=cudaNow))
+confusion_matrix,oa,aa,ka,pa,ua = modelOperDataLoader.confusionMatrix(predModel,cudaNow,testDataLoader,classification_loss)
+
+# save accuracy
+fid = h5py.File(os.path.join(outcomeDir,'student_test_accuracy.h5'),'w')
+fid.create_dataset('confusion_matrix',data=confusion_matrix)
+fid.create_dataset('oa',data=oa)
+fid.create_dataset('aa',data=aa)
+fid.create_dataset('ka',data=ka)
+fid.create_dataset('pa',data=pa)
+fid.create_dataset('ua',data=ua)
+fid.close()
+# plot confusion matrix
+cm_disp_obj = modelOperDataLoader.ConfusionMatrixDisplay(confusion_matrix,np.linspace(1,confusion_matrix.shape[0],confusion_matrix.shape[0]))
+cm_disp = cm_disp_obj.plot()
+cm_disp.figure_.savefig(os.path.join(outcomeDir,'student_confusion_matrix.png'))
+
+
+
+
+
 
 
 

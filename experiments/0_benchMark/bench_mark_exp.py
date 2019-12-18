@@ -121,11 +121,13 @@ fid.close()
 STEP SEVEN: Predict with the trained model
 '''
 # outcomeDir = os.path.join('/data/Projects/TF/experiments/0_benchMark/channel_normalization_outcome','resnet18_benchMark_tr_moscow_te_munich_outcome_2019-12-17_13-36-01')
+# outcomeDir = os.path.join('/data/Projects/TF/experiments/0_benchMark/patch_normalization_outcome','')
 modelPath = os.path.join(outcomeDir,'model')
 predModel = resnetModel.resnet18(pretrained=False, inChannel=trainDataSet.nbChannel()).to(cudaNow)
-predModel.load_state_dict(torch.load(modelPath,map_location='cuda:0'))
+predModel.load_state_dict(torch.load(modelPath,map_location=cudaNow))
 confusion_matrix,oa,aa,ka,pa,ua = modelOperDataLoader.confusionMatrix(predModel,cudaNow,testDataLoader,criterion)
 
+# save accuracy
 fid = h5py.File(os.path.join(outcomeDir,'test_accuracy.h5'),'w')
 fid.create_dataset('confusion_matrix',data=confusion_matrix)
 fid.create_dataset('oa',data=oa)
@@ -134,7 +136,7 @@ fid.create_dataset('ka',data=ka)
 fid.create_dataset('pa',data=pa)
 fid.create_dataset('ua',data=ua)
 fid.close()
-
+# plot confusion matrix
 cm_disp_obj = modelOperDataLoader.ConfusionMatrixDisplay(confusion_matrix,np.linspace(1,confusion_matrix.shape[0],confusion_matrix.shape[0]))
 cm_disp = cm_disp_obj.plot()
 cm_disp.figure_.savefig(os.path.join(outcomeDir,'confusion_matrix.png'))
