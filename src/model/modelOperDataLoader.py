@@ -78,10 +78,12 @@ def test(model,device,valDataLoader,criterion):
     model.eval()
     nb_class = valDataLoader.dataset.label.shape[1]
     confusion_matrix = np.zeros((nb_class,nb_class))
+    
+    nb_test_samples = len(valDataLoader.dataset)
 
     testLoss = 0.0
     accuracy = 0.0 # overall accuracy
-    pred = np.zeros((len(valDataLoader.dataset)))
+    pred = np.zeros((nb_test_samples))
     batch_size = valDataLoader.batch_size
     with torch.no_grad():
         for i_batch, sample in enumerate(valDataLoader):
@@ -103,8 +105,8 @@ def test(model,device,valDataLoader,criterion):
             else:
                 pred[i_batch*batch_size:] = np.squeeze(predTmp.cpu().numpy())
 
-    testLoss = testLoss/len(valDataLoader.dataset) 
-    accuracy = np.trace(confusion_matrix)/len(valDataLoader.dataset)*100
+    testLoss = testLoss/nb_test_samples 
+    accuracy = np.trace(confusion_matrix)/nb_test_samples*100
     pa = np.diagonal(confusion_matrix)/np.sum(confusion_matrix,1)
     averacc = np.sum(pa[~np.isnan(pa)])/np.sum(~np.isnan(pa))*100
 
@@ -112,7 +114,7 @@ def test(model,device,valDataLoader,criterion):
     return pred, testLoss, accuracy, averacc
 
 
-def train(model,device,optimizer,traDataLoader,criterion,numBatch, numEpoch, valDataLoader):
+def train(model, device, optimizer, traDataLoader, criterion, numEpoch, valDataLoader):
     '''
     Input:
 	- model 	-- pytorch model
@@ -120,7 +122,6 @@ def train(model,device,optimizer,traDataLoader,criterion,numBatch, numEpoch, val
 	- optimizer	-- optimizer
 	- traDataLoader	-- pytorch dataloader for training
 	- criterion	-- objective function for optimization 			(default cross entropy)
-	- numBatch 	-- number of samples in a batch				(default 64)
 	- numEpoch 	-- number of epoch for training				(default 200)
 	- valDataLoader	-- pytorch dataloader for validation data  
     Output:
@@ -139,11 +140,13 @@ def train(model,device,optimizer,traDataLoader,criterion,numBatch, numEpoch, val
     valArry = np.zeros((numEpoch))
     valAver = np.zeros((numEpoch))
     print(" ----------------------------------------- ")
+    num_batch = len(traDataLoader) 
+    nb_train_sample = len(traDataLoader.dataset)
     # training
     for epoch in range(numEpoch):
         running_loss = 0.0
         correct = 0.0
-        print("Number of batches (%d in total): " % (len(traDataLoader))) 
+        print("Number of batches (%d in total): " % (num_batch) 
         for i_batch, sample in tqdm(enumerate(traDataLoader)):
             inDat = sample['data'].to(device,dtype=torch.float)
             inLab = sample['label'].to(device,dtype=torch.float)
@@ -165,8 +168,8 @@ def train(model,device,optimizer,traDataLoader,criterion,numBatch, numEpoch, val
 
 
         # training loss and accuracy
-        traLoss[epoch] = running_loss/len(traDataLoader.dataset)
-        traArry[epoch] = correct/len(traDataLoader.dataset)*100
+        traLoss[epoch] = running_loss/nb_train_sample
+        traArry[epoch] = correct/nb_train_sample*100
         # validation loss and accuracy
         _, valLoss[epoch], valArry[epoch], valAver[epoch] = test(model,device,valDataLoader,criterion)
         # print
@@ -298,11 +301,13 @@ def meanTeacher_Train(student,teacher,device,traDat,traLab,optimizer,valDat,valL
 
 
 
-def domainMeanTeacher_Train(student,teacher,device,traDataLoad,optimizer,valDataLoad,classification_loss,consistency_loss,numBatch,numEpoch,alphaMax,upperEpoch=50):
+def domainMeanTeacher_Train(student, teacher, device, traDataLoad, optimizer, valDataLoad, classification_loss, consistency_loss, numEpoch, alphaMax, upperEpoch=50):
     # this function trains the mean teacher model, which organizes the data of source and target domains in separated batches.
-
-    print('The number of samples in source domain: % d' % (len(traDataLoad.dataset)))
-    print('The number of samples in target domain: % d' % (len(valDataLoad.dataset)))
+    nb_train_samples = len(traDataLoad.dataset)
+    nb_test_samples = len(valDataLoad.dataset)
+    nb_batches = len(traDataLoad)
+    print('The number of samples in source domain: % d' % (nb_train_samples))
+    print('The number of samples in target domain: % d' % (nb_test_samples))
     #
     student.train()
     teacher.train()
@@ -365,7 +370,7 @@ def domainMeanTeacher_Train(student,teacher,device,traDataLoad,optimizer,valData
 
 
         # iterations in batches
-        print("Number of batches (%d in total): " % (len(traDataLoad)))
+        print("Number of batches (%d in total): " % (nb_batches))
 
         for i, data in tqdm(enumerate(zip(traDataLoad,valDataLoad))):
             sourceDat = data[0]['data'].to(device,dtype=torch.float)
@@ -409,12 +414,12 @@ def domainMeanTeacher_Train(student,teacher,device,traDataLoad,optimizer,valData
             correct_t += predicted_t.eq(sourceLab).sum().item()
                 
         # training loss
-        classificationLossTrainStudent[epoch] = running_loss_stu_class/len(traDataLoad.dataset)
-        classificationLossTrainTeacher[epoch] = running_loss_tea_class/len(traDataLoad.dataset)
-        consistentLossTrain[epoch] = running_loss_consis/len(traDataLoad.dataset)
+        classificationLossTrainStudent[epoch] = running_loss_stu_class/nb_train_samples
+        classificationLossTrainTeacher[epoch] = running_loss_tea_class/nb_train_samples
+        consistentLossTrain[epoch] = running_loss_consis/nb_train_samples
         # training accuracy
-        classificationAccuTrainStudent[epoch] = correct_s/len(traDataLoad.dataset)*100
-        classificationAccuTrainTeacher[epoch] = correct_t/len(traDataLoad.dataset)*100
+        classificationAccuTrainStudent[epoch] = correct_s/nb_train_samples*100
+        classificationAccuTrainTeacher[epoch] = correct_t/nb_train_samples*100
         
         # validation loss and accuracy
         _, classificationLossTestStudent[epoch], classificationAccuTestStudent[epoch],classificationAverAccuTestStudent[epoch] = test(student,device,valDataLoad,classification_loss)
@@ -443,11 +448,14 @@ def domainMeanTeacher_Train(student,teacher,device,traDataLoad,optimizer,valData
 
 
 
-def domainMeanTeacherConfidence_Train(student,teacher,device,traDataLoad,optimizer,valDataLoad,classification_loss,consistency_loss,numBatch,numEpoch,alphaMax,alphaMaxEpoch,confident_thres=0.9):
+def domainMeanTeacherConfidence_Train(student, teacher, device, traDataLoad, optimizer, valDataLoad, classification_loss, consistency_loss, numEpoch, alphaMax, alphaMaxEpoch, confident_thres=0.9):
     # this function trains a mean teacher model which separates the data of the source and target domains in different batches, and introduce the confident mask for teacher model
+    nb_train_samples = len(traDataLoad.dataset)
+    nb_test_samples = len(valDataLoad.dataset)
+    nb_batches = len(traDataLoad)
 
-    print('The number of samples in source domain: % d' % (len(traDataLoad.dataset)))
-    print('The number of samples in target domain: % d' % (len(valDataLoad.dataset)))
+    print('The number of samples in source domain: % d' % (nb_train_samples))
+    print('The number of samples in target domain: % d' % (nb_test_samples))
 
     #
     student.train()
@@ -506,7 +514,7 @@ def domainMeanTeacherConfidence_Train(student,teacher,device,traDataLoad,optimiz
         alpha[epoch] = calculateEMAAlpha(epoch, alphaMaxEpoch, alphaMax)
 
         # iterations in batches
-        print("Number of batches (%d in total): " % (len(traDataLoad)))
+        print("Number of batches (%d in total): " % (nb_batches))
         for i, data in tqdm(enumerate(zip(traDataLoad,valDataLoad))):
             sourceDat = data[0]['data'].to(device,dtype=torch.float)
             sourceLab = data[0]['label'].to(device,dtype=torch.float)
@@ -524,7 +532,7 @@ def domainMeanTeacherConfidence_Train(student,teacher,device,traDataLoad,optimiz
             confident_mask = torch.max(teacher_prob,1)[0]>confident_thres
             # losses for backpropagation
             classLoss = classification_loss(student_out_source,sourceLab)
-            if torch.sum(confident_mask)>=0.5*len(traDataLoad):
+            if torch.sum(confident_mask)>=0.5*traDataLoad.batch_size:
                 count_con += torch.sum(confident_mask)
                 consisLoss = consistency_loss(student_out_target[confident_mask,:],teacher_out_target[confident_mask,:])
                 running_loss_consis += consisLoss.item()*torch.sum(confident_mask)
@@ -556,12 +564,12 @@ def domainMeanTeacherConfidence_Train(student,teacher,device,traDataLoad,optimiz
             correct_t += predicted_t.eq(sourceLab).sum().item()
 
         # training loss
-        classificationLossTrainStudent[epoch] = running_loss_stu_class/len(traDataLoad.dataset)
-        classificationLossTrainTeacher[epoch] = running_loss_tea_class/len(traDataLoad.dataset)
+        classificationLossTrainStudent[epoch] = running_loss_stu_class/nb_train_samples
+        classificationLossTrainTeacher[epoch] = running_loss_tea_class/nb_train_samples
         consistentLossTrain[epoch] = running_loss_consis/count_con
         # training accuracy
-        classificationAccuTrainStudent[epoch] = correct_s/len(traDataLoad.dataset)*100
-        classificationAccuTrainTeacher[epoch] = correct_t/len(traDataLoad.dataset)*100
+        classificationAccuTrainStudent[epoch] = correct_s/nb_train_samples*100
+        classificationAccuTrainTeacher[epoch] = correct_t/nb_train_samples*100
 
 
 
