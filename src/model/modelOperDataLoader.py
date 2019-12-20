@@ -146,7 +146,7 @@ def train(model, device, optimizer, traDataLoader, criterion, numEpoch, valDataL
     for epoch in range(numEpoch):
         running_loss = 0.0
         correct = 0.0
-        print("Number of batches (%d in total): " % (num_batch) 
+        print("Number of batches (%d in total): " % (num_batch)) 
         for i_batch, sample in tqdm(enumerate(traDataLoader)):
             inDat = sample['data'].to(device,dtype=torch.float)
             inLab = sample['label'].to(device,dtype=torch.float)

@@ -87,7 +87,7 @@ STEP FOUR: Train the network
 # import modelOperation
 import modelOperDataLoader
 print('Start training ...')
-resnet,traLoss,traArry,valLoss,valArry,valAver = modelOperDataLoader.train(resnet,cudaNow,optimizer,trainDataLoader,criterion,nbBatch,nbEpoch,testDataLoader)
+resnet,traLoss,traArry,valLoss,valArry,valAver = modelOperDataLoader.train(resnet,cudaNow,optimizer,trainDataLoader,criterion,nbEpoch,testDataLoader)
 
 '''
 STEP FIVE: Test the network
