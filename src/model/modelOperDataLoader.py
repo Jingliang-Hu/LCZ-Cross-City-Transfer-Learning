@@ -106,7 +106,7 @@ def test(model,device,valDataLoader,criterion):
     testLoss = testLoss/len(valDataLoader.dataset) 
     accuracy = np.trace(confusion_matrix)/len(valDataLoader.dataset)*100
     pa = np.diagonal(confusion_matrix)/np.sum(confusion_matrix,1)
-    averacc = np.sum(pa[~np.isnan(pa)])/np.sum(~np.isnan(pa))
+    averacc = np.sum(pa[~np.isnan(pa)])/np.sum(~np.isnan(pa))*100
 
 
     return pred, testLoss, accuracy, averacc
@@ -170,7 +170,7 @@ def train(model,device,optimizer,traDataLoader,criterion,numBatch, numEpoch, val
         # validation loss and accuracy
         _, valLoss[epoch], valArry[epoch], valAver[epoch] = test(model,device,valDataLoader,criterion)
         # print
-        print('epoch %d: training loss: %.4f; training acc: %.2f; validation loss: %.4f; validation acc: %.2f; validation average acc: %.2f' % (epoch+1, traLoss[epoch], traArry[epoch],valLoss[epoch],valArry[epoch],valAver[epoch]*1e4))
+        print('epoch %d: training loss: %.4f; training acc: %.2f; validation loss: %.4f; validation acc: %.2f; validation average acc: %.2f' % (epoch+1, traLoss[epoch], traArry[epoch],valLoss[epoch],valArry[epoch],valAver[epoch]))
 
     print(' --- training done --- ')
     return model,traLoss,traArry,valLoss,valArry,valAver
