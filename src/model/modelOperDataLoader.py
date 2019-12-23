@@ -1,6 +1,6 @@
 import os
 os.environ['QT_QPA_PLATFORM']='offscreen'
-
+import h5py
 import torch 
 import torch.nn as nn 
 from torch.nn import functional as F
@@ -684,6 +684,85 @@ class ConfusionMatrixDisplay(object):
         self.figure_ = fig
         self.ax_ = ax
         return self
+
+
+
+class plotTrainHistory(object):
+    # this class plot the training history of a model
+    def __init__(self, saveDir, model):
+        self.saveDir = saveDir
+        self.model = model
+
+    def loadHistory(self):
+        try:
+            fid = h5py.File(os.path.join(outcomeDir,'training_history.h5'),'r')
+            fid.close
+        except:
+            print('No training history data is found in: '+self.saveDir)
+            return 1
+
+    def plotHistory(self):
+        if self.model == 'domain_mean_teacher':
+            fid = h5py.File(os.path.join(self.saveDir,'training_history.h5'),'r')
+            EMA_alpha = np.array(fid['alpha'])
+            epoch = np.linspace(1, EMA_alpha.shape[0], EMA_alpha.shape[0])
+            import matplotlib.pyplot as plt
+            
+            # student model acc
+            fig, ax = plt.subplots()
+            ax.grid()
+            plt.ylim(0,100)
+            ax.set(xlabel='Epoch',ylabel='Percentage (%)')
+            ax.plot(epoch,np.array(fid['classificationAccuTrainStudent']),epoch,np.array(fid['classificationAccuTestTeacher']),epoch,np.array(fid['classificationAverAccuTestStudent'])*100)
+            ax.legend(['student training overall accuracy','student testing overall accuracy','student testing average accuracy'],loc=4)
+            fig.savefig(os.path.join(self.saveDir,"student_model_hist.png"),dpi=300)
+            del fig, ax
+
+
+            # teacher model acc
+            fig, ax = plt.subplots()
+            ax.grid()
+            plt.ylim(0,100)
+            ax.set(xlabel='Epoch',ylabel='Percentage (%)')
+            ax.plot(epoch,np.array(fid['classificationAccuTrainTeacher']),epoch,np.array(fid['classificationAccuTestTeacher']),epoch,np.array(fid['classificationAverAccuTestTeacher'])*100)
+            ax.legend(['teacher training overall accuracy','teacher testing overall accuracy','teacher testing average accuracy'],loc=4)
+            fig.savefig(os.path.join(self.saveDir,"teacher_model_hist.png"),dpi=300)
+            del fig, ax
+
+
+            # EMA alpha and weight of consistent loss
+            fig, ax = plt.subplots()
+            ax.grid()
+            plt.ylim(0,1)
+            ax.set(xlabel='Epoch',ylabel='Unitless')
+            ax.plot(epoch,np.array(fid['alpha']),epoch,np.array(fid['consistentLossWeight']))
+            ax.legend(['EMA Alpha','Weight of consistent loss'],loc=4)
+            fig.savefig(os.path.join(self.saveDir,"EMA_alpha_and_consis_loss_weight.png"),dpi=300)
+            del fig, ax
+
+
+            # loss
+            fig, ax = plt.subplots()
+            ax.grid()
+            ax.set(xlabel='Epoch',ylabel='Unitless')
+            totalLoss = np.array(fid['consistentLossTrain'])*np.array(fid['consistentLossWeight'])+np.array(fid['classificationLossTrainStudent'])
+            ax.plot(epoch,np.array(fid['consistentLossTrain']),epoch,np.array(fid['classificationLossTrainStudent']),epoch, totalLoss, epoch,np.array(fid['classificationLossTrainTeacher']))
+            ax.legend(['consistent loss in train','classification loss in train','total loss','teacher classification loss in train'],loc=1)
+            fig.savefig(os.path.join(self.saveDir,"training_loss.png"),dpi=300)
+            del fig, ax
+
+
+
+            # test loss
+            fig, ax = plt.subplots()
+            ax.grid()
+            ax.set(xlabel='Epoch',ylabel='Unitless')
+            ax.plot(epoch,np.array(fid['classificationLossTestStudent']),epoch,np.array(fid['classificationLossTestTeacher']))
+            ax.legend(['student classification loss in test','teacher classification loss in test'],loc=1)
+            fig.savefig(os.path.join(self.saveDir,"test_loss.png"),dpi=300)
+            del fig, ax
+
+
 
 
 

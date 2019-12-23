@@ -197,9 +197,10 @@ cm_disp = cm_disp_obj.plot()
 cm_disp.figure_.savefig(os.path.join(outcomeDir,'student_confusion_matrix.png'))
 
 
-
-
-
-
+'''
+plot outcomes
+'''
+pth = modelOperDataLoader.plotTrainHistory(outcomeDir,paraDict["modelName"])
+pth.plotHistory()
 
 
