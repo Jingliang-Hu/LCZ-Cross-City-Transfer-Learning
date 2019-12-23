@@ -301,7 +301,7 @@ def meanTeacher_Train(student,teacher,device,traDat,traLab,optimizer,valDat,valL
 
 
 
-def domainMeanTeacher_Train(student, teacher, device, traDataLoad, optimizer, valDataLoad, classification_loss, consistency_loss, numEpoch, alphaMax, upperEpoch=50,lr_scheduler=None):
+def domainMeanTeacher_Train(student, teacher, device, traDataLoad, optimizer, valDataLoad, classification_loss, consistency_loss, numEpoch, alphaMax,lr_scheduler=None, upperEpoch=50):
     # this function trains the mean teacher model, which organizes the data of source and target domains in separated batches.
     nb_train_samples = len(traDataLoad.dataset)
     nb_test_samples = len(valDataLoad.dataset)
@@ -317,6 +317,8 @@ def domainMeanTeacher_Train(student, teacher, device, traDataLoad, optimizer, va
     '''
     ###  training
     alpha = np.zeros((numEpoch))
+    # learning rate
+    learning_rate_values = np.zeros((numEpoch))
     # training student classification loss
     classificationLossTrainStudent = np.zeros((numEpoch))
     # training teacher classification loss
@@ -354,6 +356,9 @@ def domainMeanTeacher_Train(student, teacher, device, traDataLoad, optimizer, va
     print(" ----------------------------------------- ")
     # training
     for epoch in range(numEpoch):
+        print('+................................................+')
+        print('Epoch %d:' % (epoch+1))
+
         running_loss_stu_class = 0.0
         running_loss_tea_class = 0.0
         running_loss_consis = 0.0
@@ -367,6 +372,11 @@ def domainMeanTeacher_Train(student, teacher, device, traDataLoad, optimizer, va
         # alpha=0.99
         # alpha[epoch] = min(1 - 1 / (epoch + 1), alphaMax)
         alpha[epoch] = calculateEMAAlpha(epoch, upperEpoch, alphaMax)
+
+        # learning rate decay
+        if lr_scheduler !=None:
+            lr_scheduler.step()
+            learning_rate_values[epoch] = lr_scheduler.get_lr()[0]
 
         # iterations in batches
         print("Number of batches (%d in total): " % (nb_batches))
@@ -393,9 +403,6 @@ def domainMeanTeacher_Train(student, teacher, device, traDataLoad, optimizer, va
             optimizer.zero_grad()
             # backward
             loss.backward()
-            # learning rate decay
-            if lr_scheduler !=None:
-                scheduler.step()
             # update weights in student
             optimizer.step()
             # update weights in teacher
@@ -429,8 +436,8 @@ def domainMeanTeacher_Train(student, teacher, device, traDataLoad, optimizer, va
          
 
         # print
-        print('Epoch %d:' % (epoch+1))
         #print('Total loss = classification loss + weight of consistent loss * consistent loss: %.4f = %.4f + %.4f * %.4f' % (classificationLossTrainStudent[epoch] + consistentLossWeight[epoch] * consistentLossTrain[epoch], classificationLossTrainStudent[epoch], consistentLossWeight[epoch], consistentLossTrain[epoch]))
+        print("The learning rate of the %d epoch: %.6f" % (epoch+1, learning_rate_values[epoch]))
         print('Total loss (%.4f) = classification loss (%.4f) + weight of consistent loss (%.4f) * consistent loss (%.4f)' % (classificationLossTrainStudent[epoch] + consistentLossWeight[epoch] * consistentLossTrain[epoch], classificationLossTrainStudent[epoch], consistentLossWeight[epoch], consistentLossTrain[epoch]))
         print('Alpha in EMA: %.6f' % (alpha[epoch]))
         print('Student model: training loss: %.4f; training acc: %.2f; testing loss: %.4f; testing acc: %.2f; testing average acc: %.2f' % (classificationLossTrainStudent[epoch], classificationAccuTrainStudent[epoch],classificationLossTestStudent[epoch],classificationAccuTestStudent[epoch],classificationAverAccuTestStudent[epoch]))
@@ -438,7 +445,7 @@ def domainMeanTeacher_Train(student, teacher, device, traDataLoad, optimizer, va
         
         
     print(' --- training done --- ')
-    return student,teacher,classificationLossTrainStudent,classificationAccuTrainStudent,classificationLossTestStudent,classificationAccuTestStudent,classificationLossTrainTeacher,classificationAccuTrainTeacher,classificationLossTestTeacher,classificationAccuTestTeacher,consistentLossTrain, consistentLossWeight, alpha, classificationAverAccuTestStudent, classificationAverAccuTestTeacher
+    return student,teacher,classificationLossTrainStudent,classificationAccuTrainStudent,classificationLossTestStudent,classificationAccuTestStudent,classificationLossTrainTeacher,classificationAccuTrainTeacher,classificationLossTestTeacher,classificationAccuTestTeacher,consistentLossTrain, consistentLossWeight, alpha, classificationAverAccuTestStudent, classificationAverAccuTestTeacher, learning_rate_values
 
 
 

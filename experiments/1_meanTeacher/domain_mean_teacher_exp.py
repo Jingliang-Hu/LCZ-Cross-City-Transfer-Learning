@@ -29,6 +29,7 @@ paraDict = {
         "nbEpoch": 100,
         "learningRate": 1e-3,
         "learningRate_decay":"step",
+        "learningRate_stepSize":30,
         "maxEpochConsisLossWeight": 50,
         "confidenceModel":0,
         "confidenceThreshold":0.9,
@@ -46,7 +47,7 @@ paraDict = {
         "modelName":'domain_mean_teacher', # model name
         }
 
-cudaNow = torch.device('cuda:0')
+cudaNow = torch.device('cuda:5')
 
 nbBatch = paraDict["nbBatch"]
 nbEpoch = paraDict["nbEpoch"]
@@ -94,13 +95,13 @@ classification_loss = nn.CrossEntropyLoss()
 consistency_loss = nn.MSELoss()
 optimizer = optim.Adam(student.parameters(), lr=learnRate)
 
-# Assuming optimizer uses lr = 0.05 for all groups
-# lr = 0.05     if epoch < 30
-# lr = 0.005    if 30 <= epoch < 60
-# lr = 0.0005   if 60 <= epoch < 90
+# Assuming optimizer uses lr = 0.01 for all groups
+# lr = 0.01     if epoch < 30
+# lr = 0.001    if 30 <= epoch < 60
+# lr = 0.0001   if 60 <= epoch < 90
 # ...
 if paraDict["learningRate_decay"] =="step":
-    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=30, gamma=0.1)
+    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=paraDict["learningRate_stepSize"], gamma=0.1)
 else:
     scheduler = None
 
@@ -115,7 +116,7 @@ if confidentModel:
     student,teacher,classificationLossTrainStudent,classificationAccuTrainStudent,classificationLossTestStudent,classificationAccuTestStudent,classificationLossTrainTeacher,classificationAccuTrainTeacher,classificationLossTestTeacher,classificationAccuTestTeacher,consistentLossTrain, consistentLossWeight, alpha, classificationAverAccuTestStudent, classificationAverAccuTestTeacher = modelOperDataLoader.domainMeanTeacherConfidence_Train(student,teacher,cudaNow,trainDataLoader,optimizer,testDataLoader,classification_loss,consistency_loss,nbEpoch,alphaMax,alphaMaxEpoch,confidentThres,scheduler)
 
 else:
-    student,teacher,classificationLossTrainStudent,classificationAccuTrainStudent,classificationLossTestStudent,classificationAccuTestStudent,classificationLossTrainTeacher,classificationAccuTrainTeacher,classificationLossTestTeacher,classificationAccuTestTeacher,consistentLossTrain, consistentLossWeight, alpha, classificationAverAccuTestStudent, classificationAverAccuTestTeacher = modelOperDataLoader.domainMeanTeacher_Train(student,teacher,cudaNow,trainDataLoader,optimizer,testDataLoader,classification_loss,consistency_loss,nbEpoch,alphaMax,scheduler)
+    student,teacher,classificationLossTrainStudent,classificationAccuTrainStudent,classificationLossTestStudent,classificationAccuTestStudent,classificationLossTrainTeacher,classificationAccuTrainTeacher,classificationLossTestTeacher,classificationAccuTestTeacher,consistentLossTrain, consistentLossWeight, alpha, classificationAverAccuTestStudent, classificationAverAccuTestTeacher, learning_rate_values = modelOperDataLoader.domainMeanTeacher_Train(student,teacher,cudaNow,trainDataLoader,optimizer,testDataLoader,classification_loss,consistency_loss,nbEpoch,alphaMax,scheduler)
 
 #student,teacher,traSLoss,traSArry,valSLoss,valSArry,traTLoss,traTArry,valTLoss,valTArry = modelOperation.meanTeacher_Train(student,teacher,cudaNow,x_train,y_train,optimizer,x_test,y_test,classification_loss,consistency_loss,nbBatch,nbEpoch,alpha,upperEpoch)
 
@@ -158,6 +159,7 @@ fid.create_dataset('classificationAccuTestTeacher',data=classificationAccuTestTe
 fid.create_dataset('classificationAccuTestStudent',data=classificationAccuTestStudent)
 fid.create_dataset('classificationAverAccuTestStudent',data=classificationAverAccuTestStudent)
 fid.create_dataset('classificationAverAccuTestTeacher',data=classificationAverAccuTestTeacher)
+fid.create_dataset('learning_rate_values',data=learning_rate_values)
 fid.close()
 
 
