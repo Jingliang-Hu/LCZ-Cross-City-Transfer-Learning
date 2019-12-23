@@ -28,6 +28,7 @@ paraDict = {
         "nbBatch": 100,
         "nbEpoch": 100,
         "learningRate": 1e-3,
+        "learningRate_decay":"step",
         "maxEpochConsisLossWeight": 50,
         "confidenceModel":0,
         "confidenceThreshold":0.9,
@@ -93,6 +94,16 @@ classification_loss = nn.CrossEntropyLoss()
 consistency_loss = nn.MSELoss()
 optimizer = optim.Adam(student.parameters(), lr=learnRate)
 
+# Assuming optimizer uses lr = 0.05 for all groups
+# lr = 0.05     if epoch < 30
+# lr = 0.005    if 30 <= epoch < 60
+# lr = 0.0005   if 60 <= epoch < 90
+# ...
+if paraDict["learningRate_decay"] =="step":
+    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=30, gamma=0.1)
+else:
+    scheduler = None
+
 
 '''
 STEP FOUR: Train the network
@@ -101,10 +112,10 @@ import modelOperDataLoader
 
 print('Start training ...')
 if confidentModel:
-    student,teacher,classificationLossTrainStudent,classificationAccuTrainStudent,classificationLossTestStudent,classificationAccuTestStudent,classificationLossTrainTeacher,classificationAccuTrainTeacher,classificationLossTestTeacher,classificationAccuTestTeacher,consistentLossTrain, consistentLossWeight, alpha, classificationAverAccuTestStudent, classificationAverAccuTestTeacher = modelOperDataLoader.domainMeanTeacherConfidence_Train(student,teacher,cudaNow,trainDataLoader,optimizer,testDataLoader,classification_loss,consistency_loss,nbEpoch,alphaMax,alphaMaxEpoch,confidentThres)
+    student,teacher,classificationLossTrainStudent,classificationAccuTrainStudent,classificationLossTestStudent,classificationAccuTestStudent,classificationLossTrainTeacher,classificationAccuTrainTeacher,classificationLossTestTeacher,classificationAccuTestTeacher,consistentLossTrain, consistentLossWeight, alpha, classificationAverAccuTestStudent, classificationAverAccuTestTeacher = modelOperDataLoader.domainMeanTeacherConfidence_Train(student,teacher,cudaNow,trainDataLoader,optimizer,testDataLoader,classification_loss,consistency_loss,nbEpoch,alphaMax,alphaMaxEpoch,confidentThres,scheduler)
 
 else:
-    student,teacher,classificationLossTrainStudent,classificationAccuTrainStudent,classificationLossTestStudent,classificationAccuTestStudent,classificationLossTrainTeacher,classificationAccuTrainTeacher,classificationLossTestTeacher,classificationAccuTestTeacher,consistentLossTrain, consistentLossWeight, alpha, classificationAverAccuTestStudent, classificationAverAccuTestTeacher = modelOperDataLoader.domainMeanTeacher_Train(student,teacher,cudaNow,trainDataLoader,optimizer,testDataLoader,classification_loss,consistency_loss,nbEpoch,alphaMax)
+    student,teacher,classificationLossTrainStudent,classificationAccuTrainStudent,classificationLossTestStudent,classificationAccuTestStudent,classificationLossTrainTeacher,classificationAccuTrainTeacher,classificationLossTestTeacher,classificationAccuTestTeacher,consistentLossTrain, consistentLossWeight, alpha, classificationAverAccuTestStudent, classificationAverAccuTestTeacher = modelOperDataLoader.domainMeanTeacher_Train(student,teacher,cudaNow,trainDataLoader,optimizer,testDataLoader,classification_loss,consistency_loss,nbEpoch,alphaMax,scheduler)
 
 #student,teacher,traSLoss,traSArry,valSLoss,valSArry,traTLoss,traTArry,valTLoss,valTArry = modelOperation.meanTeacher_Train(student,teacher,cudaNow,x_train,y_train,optimizer,x_test,y_test,classification_loss,consistency_loss,nbBatch,nbEpoch,alpha,upperEpoch)
 

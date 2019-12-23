@@ -301,7 +301,7 @@ def meanTeacher_Train(student,teacher,device,traDat,traLab,optimizer,valDat,valL
 
 
 
-def domainMeanTeacher_Train(student, teacher, device, traDataLoad, optimizer, valDataLoad, classification_loss, consistency_loss, numEpoch, alphaMax, upperEpoch=50):
+def domainMeanTeacher_Train(student, teacher, device, traDataLoad, optimizer, valDataLoad, classification_loss, consistency_loss, numEpoch, alphaMax, upperEpoch=50,lr_scheduler=None):
     # this function trains the mean teacher model, which organizes the data of source and target domains in separated batches.
     nb_train_samples = len(traDataLoad.dataset)
     nb_test_samples = len(valDataLoad.dataset)
@@ -368,7 +368,6 @@ def domainMeanTeacher_Train(student, teacher, device, traDataLoad, optimizer, va
         # alpha[epoch] = min(1 - 1 / (epoch + 1), alphaMax)
         alpha[epoch] = calculateEMAAlpha(epoch, upperEpoch, alphaMax)
 
-
         # iterations in batches
         print("Number of batches (%d in total): " % (nb_batches))
 
@@ -394,6 +393,9 @@ def domainMeanTeacher_Train(student, teacher, device, traDataLoad, optimizer, va
             optimizer.zero_grad()
             # backward
             loss.backward()
+            # learning rate decay
+            if lr_scheduler !=None:
+                scheduler.step()
             # update weights in student
             optimizer.step()
             # update weights in teacher
