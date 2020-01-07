@@ -12,6 +12,13 @@ import numpy as np
 from tqdm import tqdm
 from itertools import product
 
+def weightOfConsistentLossTrAcc(trAcc):
+    '''
+    This function calcuates the weight of the consistent loss based on the training accuracy of the previous epoch.
+    '''
+    return np.exp(6.93147*(trAcc-1))
+
+
 def weightOfConsistentLoss(currentEpoch, maxEpoch):
     '''
     This function changes the weight of consistent loss for mean teacher model
@@ -367,7 +374,12 @@ def domainMeanTeacher_Train(student, teacher, device, traDataLoad, optimizer, va
         
         # changing the weight of consistent loss, based on the epoch
         consistentLossWeight[epoch] = weightOfConsistentLoss(epoch, upperEpoch)
-        
+        # changing the weight of consistent loss, based on the training accuracy of the previous epoch
+        #if epoch==0:
+        #    consistentLossWeight[epoch] = 0
+        #else:
+        #    consistentLossWeight[epoch] = weightOfConsistentLossTrAcc(classificationAccuTrainStudent[epoch-1]/100) 
+
         # alpha value for updating teacher model, weight in exponential moving average (EMA)
         # alpha=0.99
         # alpha[epoch] = min(1 - 1 / (epoch + 1), alphaMax)

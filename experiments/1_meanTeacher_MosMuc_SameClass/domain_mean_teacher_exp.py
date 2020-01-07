@@ -38,8 +38,8 @@ paraDict = {
  
         ### data loading parameters
         
-        "trainData": "munich1", # training data could be the training data of LCZ42 data, or data of one of the cultural-10 city
-        "testData": "moscow1",  # testing data could be all the data of the cultural-10 cities, or one of them.
+        "trainData": "moscow_alpha_copy", # training data could be the training data of LCZ42 data, or data of one of the cultural-10 city
+        "testData": "munich_copy",  # testing data could be all the data of the cultural-10 cities, or one of them.
         "normalization":"cms", # "ms": mean-std normalization, patch-wise
         "datFlag":2, # data selection: sentinel-1, sentinel-2, or both
         
@@ -47,7 +47,7 @@ paraDict = {
         "modelName":'domain_mean_teacher', # model name
         }
 
-cudaNow = torch.device('cuda:4')
+cudaNow = torch.device('cuda:5')
 
 nbBatch = paraDict["nbBatch"]
 nbEpoch = paraDict["nbEpoch"]

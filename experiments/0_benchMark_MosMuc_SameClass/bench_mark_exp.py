@@ -28,8 +28,8 @@ paraDict = {
         "learningRate": 1e-3,
 
         ### data loading parameters
-        "trainData": "moscow", # training data could be the training data of LCZ42 data, or data of one of the cultural-10 city
-        "testData": "munich",  # testing data could be all the data of the cultural-10 cities, or one of them.
+        "trainData": "moscow_alpha_copy", # training data could be the training data of LCZ42 data, or data of one of the cultural-10 city
+        "testData": "munich_copy",  # testing data could be all the data of the cultural-10 cities, or one of them.
         "normalization":"cms", # "cms": channel-wise mean-std normalization
         # "normalization":"pms", # "pms": patch-wise mean-std normalization
         "datFlag":2, # data selection: sentinel-1, sentinel-2, or both
@@ -38,7 +38,7 @@ paraDict = {
         "modelName":'resnet18_benchMark', # model name
         }
 
-cudaNow = torch.device('cuda:4')
+cudaNow = torch.device('cuda:1')
 nbBatch = paraDict["nbBatch"]
 nbEpoch = paraDict["nbEpoch"]
 learnRate = paraDict["learningRate"]

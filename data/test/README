@@ -1,0 +1,12 @@
+This directory includes the LCZ data of the cultural 10 cities.
+
+moscow.h5:              the normal lcz data of the city moscow;
+moscow_alpha.h5:        deleted the 7th and 16th classes so that it has the same15 classes as the city of munich
+moscow1.h5:             compressed the 17 classes into 10 classes
+moscow2.h5:             a copy of moscow1.h5
+
+munich.h5:              the normal lcz data of the city munich;
+munich1.h5:             compressed the 17 classes into 10 classes
+munich2.h5:             a copy of munich1.h5
+
+
