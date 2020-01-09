@@ -109,8 +109,7 @@ def lczIterDataSet(envPath,train,test,datFlag,normalization,transform=transforms
         trainDataSet = LCZDataset(datDir,datFlag,normalization,transform)
     # load testing data
     if test=="cul10":
-        print('need a h5 data file including all cultural-10 cities')
-        datDir = envPath+'/data/test/'+test+'.h5'
+        datDir = envPath+'/data/test/cul10.h5'
         testDataSet = LCZDataset(datDir,datFlag,normalization,transform)
     else:
         datDir = envPath+'/data/test/'+test+'.h5'
