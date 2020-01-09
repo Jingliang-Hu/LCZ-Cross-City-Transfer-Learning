@@ -115,7 +115,7 @@ fid.create_dataset('traLoss',data=traLoss)
 fid.create_dataset('traArry',data=traArry)
 fid.create_dataset('valLoss',data=valLoss)
 fid.create_dataset('valArry',data=valArry)
-fid.create_dataset('valAver',data=valArry)
+fid.create_dataset('valAver',data=valAver)
 fid.close()
 
 '''
