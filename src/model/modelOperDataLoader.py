@@ -7,10 +7,27 @@ from torch.nn import functional as F
 import torch.optim as optim 
 import sys
 sys.path.insert(0,'../io')
-import dataReader
 import numpy as np
 from tqdm import tqdm
 from itertools import product
+
+
+class ImageAugmentation (object):
+    def __init__(self, hflip, gaussian_noise_std=0.0):
+        self.hflip = hflip        
+        self.gaussian_noise_std = gaussian_noise_std
+    def augment(self, X):
+        X = X.clone()
+        if self.hflip:
+            X_flip = torch.flip(X,[2])
+            idx_hflip = np.random.binomial(1, 0.5, size=(len(X),))
+            X[idx_hflip,:,:,:] = X_flip[idx_hflip,:,:,:]
+            del X_flip
+        if self.gaussian_noise_std > 0.0:
+            X += torch.empty(X.shape).normal_(mean=0,std=self.gaussian_noise_std)
+        return X
+
+
 
 def weightOfConsistentLossTrAcc(trAcc):
     '''
@@ -156,6 +173,73 @@ def train(model, device, optimizer, traDataLoader, criterion, numEpoch, valDataL
         print("Number of batches (%d in total): " % (num_batch)) 
         for i_batch, sample in tqdm(enumerate(traDataLoader)):
             inDat = sample['data'].to(device,dtype=torch.float)
+            inLab = sample['label'].to(device,dtype=torch.float)
+            inLab = torch.max(inLab,1)[1]
+            # zero the parameter gradients for each minibatch
+            optimizer.zero_grad()
+            # forward
+            outputs = model(inDat)
+            # loss
+            loss = criterion(outputs, inLab)
+            # backward
+            loss.backward()
+            # optimize
+            optimizer.step()
+            # statistics
+            running_loss += loss.item() * inDat.size(0)
+            _, predicted = torch.max(outputs.data, 1)
+            correct += predicted.eq(inLab).sum().item()
+
+
+        # training loss and accuracy
+        traLoss[epoch] = running_loss/nb_train_sample
+        traArry[epoch] = correct/nb_train_sample*100
+        # validation loss and accuracy
+        _, valLoss[epoch], valArry[epoch], valAver[epoch] = test(model,device,valDataLoader,criterion)
+        # print
+        print('epoch %d: training loss: %.4f; training acc: %.2f; validation loss: %.4f; validation acc: %.2f; validation average acc: %.2f' % (epoch+1, traLoss[epoch], traArry[epoch],valLoss[epoch],valArry[epoch],valAver[epoch]))
+
+    print(' --- training done --- ')
+    return model,traLoss,traArry,valLoss,valArry,valAver
+
+
+def train_DataAug(model, device, optimizer, traDataLoader, criterion, numEpoch, valDataLoader, aug_flip, aug_noise_std):
+    '''
+    Input:
+        - model         -- pytorch model
+        - device        -- defined cpu or gpu device
+        - optimizer     -- optimizer
+        - traDataLoader -- pytorch dataloader for training
+        - criterion     -- objective function for optimization                  (default cross entropy)
+        - numEpoch      -- number of epoch for training                         (default 200)
+        - valDataLoader -- pytorch dataloader for validation data
+    Output:
+        - model         -- trained pytorch model
+        - traLoss       -- mean loss of batches
+        - traArry       -- training arrucacy for all epoch
+        - valLoss       -- validation loss for all epoch
+        - valArry       -- validation accuracy for all epoch
+
+    '''
+    model.train()
+    # initialize outputs
+    traLoss = np.zeros((numEpoch))
+    traArry = np.zeros((numEpoch))
+    valLoss = np.zeros((numEpoch))
+    valArry = np.zeros((numEpoch))
+    valAver = np.zeros((numEpoch))
+    print(" ----------------------------------------- ")
+    num_batch = len(traDataLoader)
+    nb_train_sample = len(traDataLoader.dataset)
+    aug = ImageAugmentation(aug_flip, aug_noise_std)
+    # training
+    for epoch in range(numEpoch):
+        running_loss = 0.0
+        correct = 0.0
+        print("Number of batches (%d in total): " % (num_batch))
+        for i_batch, sample in tqdm(enumerate(traDataLoader)):
+            inDat = sample['data'].to(dtype=torch.float)
+            inDat = aug.augment(inDat).to(device)
             inLab = sample['label'].to(device,dtype=torch.float)
             inLab = torch.max(inLab,1)[1]
             # zero the parameter gradients for each minibatch
@@ -462,6 +546,160 @@ def domainMeanTeacher_Train(student, teacher, device, traDataLoad, optimizer, va
 
 
 
+def domainMeanTeacherDataAug_Train(student, teacher, device, traDataLoad, optimizer, tarDataLoad, classification_loss, consistency_loss, numEpoch, alphaMax, lr_scheduler=None, upperEpoch=50, aug_flip=0, aug_noise_std=0):
+    
+	
+    nb_train_samples = len(traDataLoad.dataset)
+    nb_test_samples = len(tarDataLoad.dataset)
+    nb_batches = len(traDataLoad)
+    print('The number of samples in source domain: % d' % (nb_train_samples))
+    print('The number of samples in target domain: % d' % (nb_test_samples))
+    #
+    student.train()
+    teacher.train()
+
+    '''
+    initialize outputs
+    '''
+    ###  training
+    alpha = np.zeros((numEpoch))
+    # learning rate
+    learning_rate_values = np.zeros((numEpoch))
+    # training student classification loss
+    classificationLossTrainStudent = np.zeros((numEpoch))
+    # training teacher classification loss
+    classificationLossTrainTeacher = np.zeros((numEpoch))
+    # training consistent loss
+    consistentLossTrain = np.zeros((numEpoch))
+    consistentLossWeight = np.zeros((numEpoch))
+    # training teacher classification accuracy
+    classificationAccuTrainTeacher = np.zeros((numEpoch))
+    # training student classification accuracy
+    classificationAccuTrainStudent = np.zeros((numEpoch))
+
+
+    ###  testing
+    # testing student classification loss
+    classificationLossTestStudent = np.zeros((numEpoch))
+    # testing teacher classification loss
+    classificationLossTestTeacher = np.zeros((numEpoch))
+    # testing consisitent loss
+    # consistentLossTest = np.zeros((numEpoch))
+    # testing teacher classification accuracy
+    classificationAccuTestTeacher = np.zeros((numEpoch))
+    # testing student classification accuracy
+    classificationAccuTestStudent = np.zeros((numEpoch))
+
+    # testing teacher classification average accuracy
+    classificationAverAccuTestTeacher = np.zeros((numEpoch))
+    # testing student classification average accuracy
+    classificationAverAccuTestStudent = np.zeros((numEpoch))
+
+    # initialize data augmentation tool 
+    aug = ImageAugmentation(aug_flip, aug_noise_std)
+
+    '''
+    start training
+    '''
+    print(" ----------------------------------------- ")
+    # training
+    for epoch in range(numEpoch):
+        print('+................................................+')
+        print('Epoch %d:' % (epoch+1))
+
+        running_loss_stu_class = 0.0
+        running_loss_tea_class = 0.0
+        running_loss_consis = 0.0
+        correct_t = 0.0
+        correct_s = 0.0
+
+        # changing the weight of consistent loss, based on the epoch
+        consistentLossWeight[epoch] = weightOfConsistentLoss(epoch, upperEpoch)
+   
+        # alpha value for updating teacher model, weight in exponential moving average (EMA)
+        # alpha=0.99
+        # alpha[epoch] = min(1 - 1 / (epoch + 1), alphaMax)
+        alpha[epoch] = calculateEMAAlpha(epoch, upperEpoch, alphaMax)
+
+        # learning rate decay
+        if lr_scheduler !=None:
+            lr_scheduler.step()
+            learning_rate_values[epoch] = lr_scheduler.get_lr()[0]
+
+        # iterations in batches
+        print("Number of batches (%d in total): " % (nb_batches))
+        for i, data in tqdm(enumerate(zip(traDataLoad,tarDataLoad))):
+	    # data load and data augmentation
+            sourceDat = data[0]['data'].to(dtype=torch.float)
+            sourceDat = aug.augment(sourceDat).to(device)
+            sourceLab = data[0]['label'].to(device,dtype=torch.float)
+            sourceLab = torch.max(sourceLab,1)[1]
+	
+            targetDat = data[1]['data'].to(dtype=torch.float)
+            targetDat_stu = aug.augment(targetDat).to(device)
+            targetDat_tea = aug.augment(targetDat).to(device)
+
+            # forward
+            student_out_source = student(sourceDat)
+            student_out_target = student(targetDat_stu)
+            teacher_out_source = teacher(sourceDat)
+            teacher_out_target = teacher(targetDat_tea)
+
+            # losses for backpropagation
+            classLoss = classification_loss(student_out_source,sourceLab)
+            consisLoss = consistency_loss(student_out_target,teacher_out_target)
+            # weighted combination of losses
+            loss = classLoss + consistentLossWeight[epoch]*consisLoss
+
+            # zero the parameter gradients for each minibatch
+            optimizer.zero_grad()
+            # backward
+            loss.backward()
+            # update weights in student
+            optimizer.step()
+            # update weights in teacher
+            for teacher_param, student_param in zip(teacher.parameters(), student.parameters()):
+                teacher_param.data.mul_(alpha[epoch]).add_(1 - alpha[epoch], student_param.data)
+
+            # losses for recording the training
+            classTeaLoss = classification_loss(teacher_out_source,sourceLab)
+            # training loss and accuracy
+            running_loss_stu_class += classLoss.item()*sourceDat.size(0)
+            running_loss_tea_class += classTeaLoss.item()*sourceDat.size(0)
+            running_loss_consis += consisLoss.item()*sourceDat.size(0)
+
+            _, predicted_s = torch.max(student_out_source.data, 1)
+            _, predicted_t = torch.max(teacher_out_source.data, 1)
+
+            correct_s += predicted_s.eq(sourceLab).sum().item()
+            correct_t += predicted_t.eq(sourceLab).sum().item()
+
+        # training loss
+        classificationLossTrainStudent[epoch] = running_loss_stu_class/nb_train_samples
+        classificationLossTrainTeacher[epoch] = running_loss_tea_class/nb_train_samples
+        consistentLossTrain[epoch] = running_loss_consis/nb_train_samples
+        # training accuracy
+        classificationAccuTrainStudent[epoch] = correct_s/nb_train_samples*100
+        classificationAccuTrainTeacher[epoch] = correct_t/nb_train_samples*100
+
+        # validation loss and accuracy
+        _, classificationLossTestStudent[epoch], classificationAccuTestStudent[epoch],classificationAverAccuTestStudent[epoch] = test(student,device,tarDataLoad,classification_loss)
+        _, classificationLossTestTeacher[epoch], classificationAccuTestTeacher[epoch],classificationAverAccuTestTeacher[epoch] = test(teacher,device,tarDataLoad,classification_loss)
+
+
+        # print
+        #print('Total loss = classification loss + weight of consistent loss * consistent loss: %.4f = %.4f + %.4f * %.4f' % (classificationLossTrainStudent[epoch] + consistentLossWeight[epoch] * consistentLossTrain[epoch], classificationLossTrainStudent[epoch], consistentLossWeight[epoch], consistentLossTrain[epoch]))
+        print("The learning rate of the %d epoch: %.6f" % (epoch+1, learning_rate_values[epoch]))
+        print('Total loss (%.4f) = classification loss (%.4f) + weight of consistent loss (%.4f) * consistent loss (%.4f)' % (classificationLossTrainStudent[epoch] + consistentLossWeight[epoch] * consistentLossTrain[epoch], classificationLossTrainStudent[epoch], consistentLossWeight[epoch], consistentLossTrain[epoch]))
+        print('Alpha in EMA: %.6f' % (alpha[epoch]))
+        print('Student model: training loss: %.4f; training acc: %.2f; testing loss: %.4f; testing acc: %.2f; testing average acc: %.2f' % (classificationLossTrainStudent[epoch], classificationAccuTrainStudent[epoch],classificationLossTestStudent[epoch],classificationAccuTestStudent[epoch],classificationAverAccuTestStudent[epoch]))
+        print('Teacher model: training loss: %.4f; training acc: %.2f; testing loss: %.4f; testing acc: %.2f; testing average acc: %.2f' % (classificationLossTrainTeacher[epoch], classificationAccuTrainTeacher[epoch],classificationLossTestTeacher[epoch],classificationAccuTestTeacher[epoch],classificationAverAccuTestTeacher[epoch]))
+
+
+    print(' --- training done --- ')
+    return student,teacher,classificationLossTrainStudent,classificationAccuTrainStudent,classificationLossTestStudent,classificationAccuTestStudent,classificationLossTrainTeacher,classificationAccuTrainTeacher,classificationLossTestTeacher,classificationAccuTestTeacher,consistentLossTrain, consistentLossWeight, alpha, classificationAverAccuTestStudent, classificationAverAccuTestTeacher, learning_rate_values
+
+
 
 
 
@@ -635,9 +873,23 @@ class ConfusionMatrixDisplay(object):
     figure_ : matplotlib Figure
         Figure containing the confusion matrix.
     """
-    def __init__(self, confusion_matrix, display_labels):
+    def __init__(self, confusion_matrix, display_labels, width=18, height = 16, colorbarFlag=0, picFormat = 'png', savedir = '.'):
         self.confusion_matrix = confusion_matrix
         self.display_labels = display_labels
+        self.width = width
+        self.height = height
+        self.colorbarFlag = colorbarFlag
+        self.picFormat = picFormat
+        self.savedir = savedir
+        self.savePath = os.path.join(savedir,'confusion_matrix.'+self.picFormat)
+
+
+    def savefig(self,picFormat = 'png'):
+        self.figure_.tight_layout(pad=0)
+        if picFormat =='eps':
+            self.savePath = os.path.join(self.savedir,'confusion_matrix.eps')
+        self.figure_.savefig(self.savePath, dpi=300)
+
 
     def plot(self, include_values=True, cmap='viridis',
              xticks_rotation='horizontal', values_format=None, ax=None):
@@ -669,7 +921,7 @@ class ConfusionMatrixDisplay(object):
             fig, ax = plt.subplots()
         else:
             fig = ax.figure
-        fig.set_size_inches(18, 16)
+        fig.set_size_inches(self.width, self.height)
         cm = self.confusion_matrix
         n_classes = cm.shape[0]
         self.im_ = ax.imshow(cm, interpolation='nearest', cmap=cmap)
@@ -690,8 +942,9 @@ class ConfusionMatrixDisplay(object):
                                            format(cm[i, j], values_format),
                                            ha="center", va="center",
                                            color=color)
+        if self.colorbarFlag:
+            fig.colorbar(self.im_, ax=ax)
 
-        fig.colorbar(self.im_, ax=ax)
         ax.set(xticks=np.arange(n_classes),
                yticks=np.arange(n_classes),
                xticklabels=self.display_labels,
