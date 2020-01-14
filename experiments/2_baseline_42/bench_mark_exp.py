@@ -25,7 +25,7 @@ paraDict = {
         ### network parameters
         "nbBatch": 256,
         "nbEpoch": 100,
-        "learningRate": 1e-3,
+        "learningRate": 1e-4,
 
         ### data loading parameters
         "trainData": "lcz42", # training data could be the training data of LCZ42 data, or data of one of the cultural-10 city
