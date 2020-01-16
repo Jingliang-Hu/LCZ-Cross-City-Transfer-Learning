@@ -873,7 +873,7 @@ class ConfusionMatrixDisplay(object):
     figure_ : matplotlib Figure
         Figure containing the confusion matrix.
     """
-    def __init__(self, confusion_matrix, display_labels, width=18, height = 16, colorbarFlag=0, picFormat = 'png', savedir = '.'):
+    def __init__(self, confusion_matrix, display_labels, width=7, height=6.5, colorbarFlag=0, picFormat = 'png', savedir = '.'):
         self.confusion_matrix = confusion_matrix
         self.display_labels = display_labels
         self.width = width
@@ -921,7 +921,7 @@ class ConfusionMatrixDisplay(object):
             fig, ax = plt.subplots()
         else:
             fig = ax.figure
-        fig.set_size_inches(self.width, self.height)
+        fig.set_size_inches(self.width, self.height) # self.height
         cm = self.confusion_matrix
         n_classes = cm.shape[0]
         self.im_ = ax.imshow(cm, interpolation='nearest', cmap=cmap)
