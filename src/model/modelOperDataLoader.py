@@ -10,6 +10,7 @@ sys.path.insert(0,'../io')
 import numpy as np
 from tqdm import tqdm
 from itertools import product
+from torch.nn import functional as F
 
 
 class ImageAugmentation (object):
@@ -486,12 +487,15 @@ def domainMeanTeacher_Train(student, teacher, device, traDataLoad, optimizer, va
             # forward           
             student_out_source = student(sourceDat)
             student_out_target = student(targetDat)
+            student_out_target_prob = F.softmax(student_out_target, dim=1)
+
             teacher_out_source = teacher(sourceDat)
             teacher_out_target = teacher(targetDat)
-            
+            teacher_out_target_prob = F.softmax(teacher_out_target, dim=1)
+
             # losses for backpropagation
             classLoss = classification_loss(student_out_source,sourceLab)
-            consisLoss = consistency_loss(student_out_target,teacher_out_target)
+            consisLoss = consistency_loss(student_out_target_prob,teacher_out_target_prob)
             # weighted combination of losses
             loss = classLoss + consistentLossWeight[epoch]*consisLoss
 
@@ -642,12 +646,14 @@ def domainMeanTeacherDataAug_Train(student, teacher, device, traDataLoad, optimi
             # forward
             student_out_source = student(sourceDat)
             student_out_target = student(targetDat_stu)
+            student_out_target_prob = F.softmax(student_out_target, dim=1)
+
             teacher_out_source = teacher(sourceDat)
             teacher_out_target = teacher(targetDat_tea)
-
+            teacher_out_target_prob = F.softmax(teacher_out_target, dim=1)
             # losses for backpropagation
             classLoss = classification_loss(student_out_source,sourceLab)
-            consisLoss = consistency_loss(student_out_target,teacher_out_target)
+            consisLoss = consistency_loss(student_out_target_prob,teacher_out_target_prob)
             # weighted combination of losses
             loss = classLoss + consistentLossWeight[epoch]*consisLoss
 
