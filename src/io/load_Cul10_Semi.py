@@ -104,6 +104,9 @@ def lczIterDataSet(envPath,train,test,datFlag,normalization,transform=transforms
     if train=="lcz42":
         datDir = envPath + '/data/train/train.h5'
         trainDataSet = LCZDataset(datDir,datFlag,normalization,transform)
+    elif train=="lcz42_bal":
+        datDir = envPath + '/data/train/train_bal.h5'
+        trainDataSet = LCZDataset(datDir,datFlag,normalization,transform)
     else:
         datDir = envPath+'/data/test/'+train+'.h5'
         trainDataSet = LCZDataset(datDir,datFlag,normalization,transform)
