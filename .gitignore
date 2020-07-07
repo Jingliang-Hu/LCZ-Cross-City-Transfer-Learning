@@ -26,4 +26,5 @@ trained_models
 **/*outcome*
 **/*backup*
 
-
+# ignore local environment setting
+*.envPath
