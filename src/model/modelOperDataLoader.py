@@ -120,6 +120,50 @@ def multiStreamConfusionMatrix(model_list,device,testDataLoad,criterion):
     print(ua)
     return confusion_matrix,oa,aa,ka,pa,ua
 
+def semiFusionConfusionMatrix(model_list,device,testDataLoad_s1,testDataLoad_s2,criterion):
+    for i in range(len(model_list)):
+        model_list[i].eval()
+
+    nb_class = testDataLoad_s1.dataset.label.shape[1]
+    confusion_matrix = np.zeros((nb_class,nb_class))
+    label_consist_check = 0
+    with torch.no_grad():
+        for i_batch, sample in enumerate(zip(testDataLoad_s1,testDataLoad_s2)):
+            inDat_s1 = sample[0]['data'].to(device,dtype=torch.float)
+            inLab_s1 = sample[0]['label'].to(device,dtype=torch.float)
+            inLab_s1 = torch.max(inLab_s1,1)[1]
+            inDat_s2 = sample[1]['data'].to(device,dtype=torch.float)
+            inLab_s2 = sample[1]['label'].to(device,dtype=torch.float)
+            inLab_s2 = torch.max(inLab_s2,1)[1]
+            label_consist_check+=torch.sum(inLab_s1-inLab_s2)
+
+            # predicting
+            output = model_list[0](inDat_s1)
+            output += model_list[1](inDat_s1)
+            output += model_list[2](inDat_s2)
+            output += model_list[3](inDat_s2)
+
+            _, pred = torch.max(output.data, 1) # get the index of the max log-probability
+            for l, p in zip(inLab_s1.view(-1), pred.view(-1)):
+                confusion_matrix[l.long(), p.long()] += 1
+
+    print('label consistent check: %d' %(label_consist_check))
+
+    pa = np.diagonal(confusion_matrix)/np.sum(confusion_matrix,1)
+    ua = np.diagonal(confusion_matrix)/np.sum(confusion_matrix,0)
+    oa = np.trace(confusion_matrix)/np.sum(confusion_matrix)
+    aa = np.sum(pa[~np.isnan(pa)])/np.sum(~np.isnan(pa))
+    # kappa coefficient
+    po = oa
+    pe = np.sum(np.sum(confusion_matrix,0)*np.sum(confusion_matrix,1))/np.square(np.sum(confusion_matrix))
+    ka = (po-pe)/(1-pe)
+    print("Number of test samples: %d" %(len(testDataLoad_s1.dataset)))
+    print("Overall accuracy: %.4f; Average accuracy: %.4f " %(oa, aa))
+    print("Producer accuracy: ")
+    print(pa)
+    print("User accuracy: " )
+    print(ua)
+    return confusion_matrix,oa,aa,ka,pa,ua
 
 
 

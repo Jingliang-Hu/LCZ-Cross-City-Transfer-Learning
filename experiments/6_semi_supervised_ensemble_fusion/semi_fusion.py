@@ -26,7 +26,7 @@ print("parameter setting...")
 paraDict = {
         ### network parameters
         "nbBatch": 256,
-        "nbEpoch": 1,#728,
+        "nbEpoch": 728,
         "learningRate": 1e-4,
 
         ### data loading parameters
@@ -45,7 +45,7 @@ paraDict = {
         "nbStreams":4,
         }
 
-cudaNow = torch.device('cuda:5')
+cudaNow = torch.device('cuda:0')
 
 nbBatch = paraDict["nbBatch"]
 nbEpoch = paraDict["nbEpoch"]
@@ -166,8 +166,8 @@ fid.close()
 '''
 STEP SEVEN: Predict with the student1 model
 '''
-import modelOperDataLoader_dev
-confusion_matrix,oa,aa,ka,pa,ua = modelOperDataLoader_dev.semiFusionConfusionMatrix(students, cudaNow, data_loaders[4],data_loaders[5], classification_loss)
+import modelOperDataLoader
+confusion_matrix,oa,aa,ka,pa,ua = modelOperDataLoader.semiFusionConfusionMatrix(students, cudaNow, data_loaders[4],data_loaders[5], classification_loss)
 
 # save accuracy
 fid = h5py.File(os.path.join(outcomeDir,'test_accuracy.h5'),'w')
@@ -179,7 +179,7 @@ fid.create_dataset('pa',data=pa)
 fid.create_dataset('ua',data=ua)
 fid.close()
 # plot confusion matrix
-cm_disp_obj = modelOperDataLoader_dev.ConfusionMatrixDisplay(confusion_matrix,np.linspace(1,confusion_matrix.shape[0],confusion_matrix.shape[0]))
+cm_disp_obj = modelOperDataLoader.ConfusionMatrixDisplay(confusion_matrix,np.linspace(1,confusion_matrix.shape[0],confusion_matrix.shape[0]))
 cm_disp = cm_disp_obj.plot()
 cm_disp.figure_.savefig(os.path.join(outcomeDir,'confusion_matrix.png'))
 
@@ -189,7 +189,7 @@ cm_disp.figure_.savefig(os.path.join(outcomeDir,'confusion_matrix.png'))
 '''
 plot outcomes
 '''
-pth = modelOperDataLoader_dev.plotTrainHistory(outcomeDir,paraDict["modelName"])
+pth = modelOperDataLoader.plotTrainHistory(outcomeDir,paraDict["modelName"])
 pth.plotHistory()
 
 
