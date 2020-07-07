@@ -39,8 +39,9 @@ class LCZDataset(Dataset):
     """
     pytorch iterative data loader costomized to lcz data
     """
-    def __init__(self, dataFile, dataFlag, normalization, transform=transforms.Compose([ToTensor()])):
+    def __init__(self, dataFile, dataFlag, normalization, transform=transforms.Compose([ToTensor()]),shaffle=1):
         self.dataFile = dataFile
+        self.shaffle = shaffle
         self.dataFlag = dataFlag
         self.transform = transform
         self.loadData()
@@ -60,11 +61,7 @@ class LCZDataset(Dataset):
 
 
     def __len__(self):
-        fid = h5py.File(self.dataFile)
-        nb_sample = np.array(fid['y']).shape[0]
-        fid.close()
-        del fid
-        return nb_sample
+        return self.label.shape[0]
 
     def nbChannel(self):
         fid = h5py.File(self.dataFile)
@@ -72,6 +69,8 @@ class LCZDataset(Dataset):
             nb_channel = np.array(fid['x_1']).shape[3]
         elif self.dataFlag ==2:
             nb_channel = np.array(fid['x_2']).shape[3]
+        elif self.dataFlag ==0:
+            nb_channel = np.array(fid['x_1']).shape[3]+np.array(fid['x_2']).shape[3]
         fid.close()
         del fid
         return nb_channel
@@ -83,10 +82,23 @@ class LCZDataset(Dataset):
            self.data = np.array(fid['x_1'])
         elif self.dataFlag == 2:
            self.data = np.array(fid['x_2'])
+        elif self.dataFlag == 0:
+           self.data = np.concatenate((np.array(fid['x_1']),np.array(fid['x_2'])),axis=3)
         fid.close()
         del fid
 
+        if self.shaffle:
+            np.random.seed(0)
+            idx = np.argsort(np.random.rand(self.label.shape[0])).astype(int)
+            self.label = self.label[idx,:]
+            self.data = self.data[idx,:,:,:]
 
+    def setTimes(self, times):
+        self.times = times
+
+    def replicate(self):
+        self.data = np.repeat(self.data,self.times,axis=0)
+        self.label = np.repeat(self.label,self.times,axis=0)
 
     def __getitem__(self,idx):
         if torch.is_tensor(idx):
@@ -99,24 +111,51 @@ class LCZDataset(Dataset):
         return sample
 
 
-def lczIterDataSet(envPath,train,test,datFlag,normalization,transform=transforms.Compose([ToTensor()])):
+def lczIterDataSet(envPath,train,test,datFlag,normalization,transform=transforms.Compose([ToTensor()]),shaffle=0):
     # load training data
     if train=="lcz42":
         datDir = envPath + '/data/train/train.h5'
-        trainDataSet = LCZDataset(datDir,datFlag,normalization,transform)
+    elif train=="lcz42_s1":
+        datDir = envPath + '/data/train/train_s1.h5'
     elif train=="lcz42_bal":
         datDir = envPath + '/data/train/train_bal.h5'
-        trainDataSet = LCZDataset(datDir,datFlag,normalization,transform)
+    elif train=="cul10_train":
+        datDir = envPath + '/data/train/cul10_train.h5'
+    elif train=="asia":
+        datDir = envPath + '/data/train/train_asia.h5'
+    elif train=="euro":
+        datDir = envPath + '/data/train/train_euro.h5'
+    elif train=="north_am":
+        datDir = envPath + '/data/train/train_namr.h5'
+    elif train=="south_am":
+        datDir = envPath + '/data/train/train_samr.h5'
+    elif train=="africa":
+        datDir = envPath + '/data/train/train_afri.h5'
     else:
         datDir = envPath+'/data/test/'+train+'.h5'
-        trainDataSet = LCZDataset(datDir,datFlag,normalization,transform)
+    trainDataSet = LCZDataset(datDir,datFlag,normalization,transform,shaffle)
+
     # load testing data
     if test=="cul10":
         datDir = envPath+'/data/test/cul10.h5'
-        testDataSet = LCZDataset(datDir,datFlag,normalization,transform)
+    elif test=="cul10_s1":
+        datDir = envPath+'/data/test/cul10_s1.h5'
+    elif test=="cul10_test":
+        datDir = envPath+'/data/test/cul10_test.h5'
+    elif train=="asia":
+        datDir = envPath + '/data/train/train_asia.h5'
+    elif train=="euro":
+        datDir = envPath + '/data/train/train_euro.h5'
+    elif train=="north_am":
+        datDir = envPath + '/data/train/train_namr.h5'
+    elif train=="south_am":
+        datDir = envPath + '/data/train/train_samr.h5'
+    elif train=="africa":
+        datDir = envPath + '/data/train/train_afri.h5'
     else:
         datDir = envPath+'/data/test/'+test+'.h5'
-        testDataSet = LCZDataset(datDir,datFlag,normalization,transform)
+
+    testDataSet = LCZDataset(datDir,datFlag,normalization,transform,shaffle)
         
     return trainDataSet,testDataSet    
 

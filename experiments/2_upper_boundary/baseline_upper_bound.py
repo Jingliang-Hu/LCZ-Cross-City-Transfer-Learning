@@ -28,8 +28,8 @@ paraDict = {
         "learningRate": 1e-4,
 
         ### data loading parameters
-        "trainData": "lcz42", # training data could be the training data of LCZ42 data, or data of one of the cultural-10 city
-        "testData": "cul10",  # testing data could be all the data of the cultural-10 cities, or one of them.
+        "trainData": "cul10_west", # training data could be the training data of LCZ42 data, or data of one of the cultural-10 city
+        "testData": "cul10_east",  # testing data could be all the data of the cultural-10 cities, or one of them.
         "normalization":"cms", # "cms": channel-wise mean-std normalization
         # "normalization":"pms", # "pms": patch-wise mean-std normalization
         "datFlag":2, # data selection: sentinel-1, sentinel-2, or both
@@ -69,12 +69,9 @@ STEP TWO: initial a resnet model
 '''
 sys.path.append(os.path.abspath(envPath+"/src/model"))
 import resnetModel
-# model = resnetModel.resnet18(pretrained=False, inChannel=trainDataSet.nbChannel()).to(cudaNow)
-# predModel = resnetModel.resnet18(pretrained=False, inChannel=trainDataSet.nbChannel()).to(cudaNow)
-
+# resnet = resnetModel.resnet18(pretrained=False, inChannel=trainDataSet.nbChannel()).to(cudaNow)
 model = resnetModel.LeNet(inChannel=trainDataSet.nbChannel(), nbClass = trainDataSet.label.shape[1]).to(cudaNow)
 predModel = resnetModel.LeNet(inChannel=trainDataSet.nbChannel(), nbClass = trainDataSet.label.shape[1]).to(cudaNow)
-
 
 
 '''

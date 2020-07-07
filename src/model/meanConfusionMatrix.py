@@ -14,9 +14,9 @@ import h5py
 import os
 import glob
 
-directory = '/data/hu/TF/experiments/0_benchMark_MosMuc_SameClass'
-filePattern = 'resnet18_benchMark_tr_moscow*'
-h5Name = 'test_accuracy.h5'
+directory = '/data/hu/TF/experiments/1_meanTeacher_MosMuc_SameClass'
+filePattern = 'domain_mean_teacher_tr_munich*'
+h5Name = 'teacher_test_accuracy.h5'
 
 h5Files = glob.glob(os.path.join(directory,filePattern))
 print(len(h5Files))
@@ -29,12 +29,12 @@ for fi in h5Files:
 	f.close()
 	
 	
-c_aver = c_sum.astype(np.float)/len(h5Files)
+c_aver = np.round(c_sum.astype(np.float)/len(h5Files))
 
 
 
 # plot confusion matrix
-cm_disp_obj = modelOperDataLoader.ConfusionMatrixDisplay(c_aver,np.linspace(1,c_aver.shape[0],c_aver.shape[0]))
+cm_disp_obj = modelOperDataLoader.ConfusionMatrixDisplay(c_aver,np.linspace(1,c_aver.shape[0],c_aver.shape[0], dtype=np.uint8),width = 7, height = 6.5)
 cm_disp = cm_disp_obj.plot()
 cm_disp.savefig()
 

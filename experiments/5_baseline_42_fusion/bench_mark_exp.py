@@ -32,13 +32,13 @@ paraDict = {
         "testData": "cul10",  # testing data could be all the data of the cultural-10 cities, or one of them.
         "normalization":"cms", # "cms": channel-wise mean-std normalization
         # "normalization":"pms", # "pms": patch-wise mean-std normalization
-        "datFlag":2, # data selection: sentinel-1, sentinel-2, or both
+        "datFlag":0, # data selection: sentinel-1, sentinel-2, or both
 
         ### model name
         "modelName":'LeNet', # model name
         }
 
-cudaNow = torch.device('cuda:5')
+cudaNow = torch.device('cuda:2')
 nbBatch = paraDict["nbBatch"]
 nbEpoch = paraDict["nbEpoch"]
 learnRate = paraDict["learningRate"]

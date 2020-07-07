@@ -34,16 +34,22 @@ paraDict = {
         # "normalization":"pms", # "pms": patch-wise mean-std normalization
         "datFlag":2, # data selection: sentinel-1, sentinel-2, or both
 
+        ### data augumentation, flip and gaussion noise  
+        "aug_flip":1,  
+        "aug_noise_std":0.1, 
+
         ### model name
-        "modelName":'LeNet', # model name
+        "modelName":'resnet18_benchMark', # model name
         }
 
-cudaNow = torch.device('cuda:5')
+cudaNow = torch.device('cuda:1')
 nbBatch = paraDict["nbBatch"]
 nbEpoch = paraDict["nbEpoch"]
 learnRate = paraDict["learningRate"]
 datFlag = paraDict["datFlag"]
 modelName = paraDict["modelName"]
+aug_flip =  paraDict["aug_flip"]  
+aug_noise_std = paraDict["aug_noise_std"] 
 
 
 '''
@@ -69,13 +75,7 @@ STEP TWO: initial a resnet model
 '''
 sys.path.append(os.path.abspath(envPath+"/src/model"))
 import resnetModel
-# model = resnetModel.resnet18(pretrained=False, inChannel=trainDataSet.nbChannel()).to(cudaNow)
-# predModel = resnetModel.resnet18(pretrained=False, inChannel=trainDataSet.nbChannel()).to(cudaNow)
-
-model = resnetModel.LeNet(inChannel=trainDataSet.nbChannel(), nbClass = trainDataSet.label.shape[1]).to(cudaNow)
-predModel = resnetModel.LeNet(inChannel=trainDataSet.nbChannel(), nbClass = trainDataSet.label.shape[1]).to(cudaNow)
-
-
+resnet = resnetModel.resnet18(pretrained=False, inChannel=trainDataSet.nbChannel()).to(cudaNow)
 
 '''
 STEP THREE: Define a loss function and optimizer
@@ -83,7 +83,7 @@ STEP THREE: Define a loss function and optimizer
 import torch.optim as optim
 import torch.nn as nn
 criterion = nn.CrossEntropyLoss()
-optimizer = optim.Adam(model.parameters(), lr=learnRate)
+optimizer = optim.Adam(resnet.parameters(), lr=learnRate)
 
 
 '''
@@ -93,7 +93,7 @@ STEP FOUR: Train the network
 # import modelOperation
 import modelOperDataLoader
 print('Start training ...')
-model,traLoss,traArry,valLoss,valArry,valAver = modelOperDataLoader.train(model,cudaNow,optimizer,trainDataLoader,criterion,nbEpoch,testDataLoader)
+resnet,traLoss,traArry,valLoss,valArry,valAver = modelOperDataLoader.train_DataAug(resnet,cudaNow,optimizer,trainDataLoader,criterion,nbEpoch,testDataLoader,aug_flip,aug_noise_std)
 
 '''
 STEP FIVE: Test the network
@@ -115,7 +115,7 @@ codes for saving and loading models:
 		model.eval()
 '''
 
-torch.save(model.state_dict(), os.path.join(outcomeDir,'model'))
+torch.save(resnet.state_dict(), os.path.join(outcomeDir,'model'))
 fid = h5py.File(os.path.join(outcomeDir,'training_history.h5'),'w')
 fid.create_dataset('traLoss',data=traLoss)
 fid.create_dataset('traArry',data=traArry)
@@ -130,6 +130,7 @@ STEP SEVEN: Predict with the trained model
 # outcomeDir = os.path.join('/data/Projects/TF/experiments/0_benchMark/channel_normalization_outcome','resnet18_benchMark_tr_moscow_te_munich_outcome_2019-12-17_13-36-01')
 # outcomeDir = os.path.join('/data/Projects/TF/experiments/0_benchMark/patch_normalization_outcome','')
 modelPath = os.path.join(outcomeDir,'model')
+predModel = resnetModel.resnet18(pretrained=False, inChannel=trainDataSet.nbChannel()).to(cudaNow)
 predModel.load_state_dict(torch.load(modelPath,map_location=cudaNow))
 confusion_matrix,oa,aa,ka,pa,ua = modelOperDataLoader.confusionMatrix(predModel,cudaNow,testDataLoader,criterion)
 
