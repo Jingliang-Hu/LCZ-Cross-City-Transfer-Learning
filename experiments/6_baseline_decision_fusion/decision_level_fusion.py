@@ -97,14 +97,7 @@ STEP TWO: initial a resnet model
 sys.path.append(os.path.abspath(envPath+"/src/model"))
 import resnetModel
 
-if modelName=='resnet18':
-    model = resnetModel.resnet18(inChannel=trainDataSet_s2.nbChannel()+trainDataSet_s1.nbChannel(), nbClass = trainDataSet_s2.label.shape[1]).to(cudaNow)
-elif modelName=='LeNet':
-    model = resnetModel.LeNet(inChannel=trainDataSet_s2.nbChannel()+trainDataSet_s1.nbChannel(), nbClass = trainDataSet_s2.label.shape[1]).to(cudaNow)
-
-
-
-
+model = resnetModel.LeNet_decision_fusion(inChannel_1=trainDataSet_s1.nbChannel(), inChannel_2=trainDataSet_s2.nbChannel(), nbClass = trainDataSet_s2.label.shape[1]).to(cudaNow)
 
 
 '''
@@ -120,8 +113,8 @@ optimizers = optim.Adam(model.parameters(), lr=learnRate)
 STEP FOUR: Train the network
 '''
 import modelOperDataLoader
-
-model, cla_loss_train, cla_acc_train, cla_loss_test, cla_acc_test, cla_averacc_test = modelOperDataLoader.train_data_level_fusion(model, data_loaders, optimizers, cudaNow, classification_loss,  nbEpoch)
+# the training script 'train_feature_level_fusion' works for both feature fusion and decision fusion
+model, cla_loss_train, cla_acc_train, cla_loss_test, cla_acc_test, cla_averacc_test = modelOperDataLoader.train_feature_level_fusion(model, data_loaders, optimizers, cudaNow, classification_loss,  nbEpoch)
 
 '''
 STEP FIVE: Test the network
@@ -142,7 +135,7 @@ codes for saving and loading models:
 		model.load_state_dict(torch.load(PATH))
 		model.eval()
 '''
-model_name = 'data_level_fusion'
+model_name = 'decision_level_fusion'
 torch.save(model.state_dict(), os.path.join(outcomeDir,model_name))
 
 # saveing training history
@@ -160,7 +153,7 @@ fid.close()
 STEP SEVEN: Predict with the student1 model
 '''
 import modelOperDataLoader
-_,  _, oa, aa, ka, pa, ua, confusion_matrix = modelOperDataLoader.test_data_level_fusion(model, cudaNow, data_loaders, classification_loss)
+_,  _, oa, aa, ka, pa, ua, confusion_matrix = modelOperDataLoader.test_feature_level_fusion(model, cudaNow, data_loaders, classification_loss)
 
 # save accuracy
 fid = h5py.File(os.path.join(outcomeDir,'test_accuracy.h5'),'w')

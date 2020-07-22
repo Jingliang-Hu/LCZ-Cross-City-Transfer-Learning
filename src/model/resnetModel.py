@@ -278,7 +278,7 @@ class LeNet_decision_fusion(nn.Module):
         self.conv3 = nn.Conv2d(256, 256, 3)
         self.fc1 = nn.Linear(256 * 5 * 5, 128)
         self.fc2 = nn.Linear(128, nbClass)
-        self.LogSoftMax_decistion = nn.LogSoftmax()
+        self.LogSoftMax_decistion = nn.LogSoftmax(dim=1)
 
         self.fusionFC = nn.Linear(nbClass*2,nbClass)
 
@@ -293,12 +293,10 @@ class LeNet_decision_fusion(nn.Module):
         x2 = self.pool(F.relu(self.conv3(self.conv2(x2))))
         x2 = x2.view(x2.size(0), -1)
         x2 = F.relu(self.fc1(x2))
-        x2 = self.fc2(x2)
         x2 = self.LogSoftMax_decistion(self.fc2(x2))
 
         fus = torch.cat([x1,x2],dim=1)
         fus = F.relu(self.fusionFC(fus))
-        fus = self.fc2(fus)
         return fus
 
 
