@@ -557,6 +557,72 @@ def train_multi_ensemble(students, data_loaders, optimizers, device, classificat
     return students, cla_loss_train, cla_acc_train, cla_loss_test, cla_acc_test, con_loss_train, cla_averacc_test
 
 
+def train_feature_level_fusion(model, data_loaders, optimizer, device, classification_loss, numEpoch):
+    nb_train_samples = len(data_loaders[0].dataset)
+    nb_test_samples = len(data_loaders[2].dataset)
+
+    nb_batches = len(data_loaders[0])
+    print('The number of samples in source domain: % d' % (nb_train_samples))
+    print('The number of samples in target domain: % d' % (nb_test_samples))
+
+    traLoss = np.zeros((numEpoch))
+    traArry = np.zeros((numEpoch))
+    valLoss = np.zeros((numEpoch))
+    valArry = np.zeros((numEpoch))
+    valAver = np.zeros((numEpoch))
+
+    model.train()
+
+    # start training
+    print(" ----------------------------------------- ")
+    # training
+    for epoch in range(numEpoch):
+        print('+................................................+')
+        print('Epoch %d:' % (epoch+1))
+        running_loss = 0.0
+        correct = 0.0
+        # iterations in batches
+        print("Number of batches (%d in total): " % (nb_batches))
+        for i, data in tqdm(enumerate(zip(data_loaders[0],data_loaders[1]))):
+            sourceDat1 = data[0]['data'].to(device,dtype=torch.float)
+            sourceLab1 = data[0]['label'].to(device,dtype=torch.float)
+            sourceLab1 = torch.max(sourceLab1,1)[1]
+
+            sourceDat2 = data[1]['data'].to(device,dtype=torch.float)
+            sourceLab2 = data[1]['label'].to(device,dtype=torch.float)
+            sourceLab2 = torch.max(sourceLab2,1)[1]
+            if all(sourceLab1==sourceLab2):
+                inLab = sourceLab1
+            else:
+                print('S1 data and S2 data are not corresponded.')
+            # zero the parameter gradients for each minibatch
+            optimizer.zero_grad()
+            # forward
+            outputs = model(sourceDat1,sourceDat2)
+            # loss
+            loss = classification_loss(outputs, inLab)
+            # backward
+            loss.backward()
+            # optimize
+            optimizer.step()
+            # statistics
+            running_loss += loss.item() * sourceDat1.size(0)
+            _, predicted = torch.max(outputs.data, 1)
+            correct += predicted.eq(inLab).sum().item()
+        # training loss and accuracy
+        traLoss[epoch] = running_loss/nb_train_samples
+        traArry[epoch] = correct/nb_train_samples*100
+
+
+        # validation loss and accuracy
+        _, valLoss[epoch], valArry[epoch], valAver[epoch], _, _, _, _, = test_feature_level_fusion(model,device,data_loaders,classification_loss)
+        # print
+        print('epoch %d: training loss: %.4f; training acc: %.2f; validation loss: %.4f; validation acc: %.2f; validation average acc: %.2f' % (epoch+1, traLoss[epoch], traArry[epoch],valLoss[epoch],valArry[epoch],valAver[epoch]))
+
+    print(' --- training done --- ')
+    return model,traLoss,traArry,valLoss,valArry,valAver
+
+
 
 def train_data_level_fusion(model, data_loaders, optimizer, device, classification_loss, numEpoch):
     nb_train_samples = len(data_loaders[0].dataset)
@@ -625,6 +691,59 @@ def train_data_level_fusion(model, data_loaders, optimizer, device, classificati
 
     print(' --- training done --- ')
     return model,traLoss,traArry,valLoss,valArry,valAver
+
+def test_feature_level_fusion(model,device,data_loaders,criterion):
+    model.eval()
+    nb_class = data_loaders[0].dataset.label.shape[1]
+    confusion_matrix = np.zeros((nb_class,nb_class))
+
+    nb_test_samples = len(data_loaders[2].dataset)
+
+    testLoss = 0.0
+    pred = np.zeros((nb_test_samples))
+    batch_size = data_loaders[2].batch_size
+    with torch.no_grad():
+        for i_batch, data in enumerate(zip(data_loaders[2],data_loaders[3])):
+            sourceDat1 = data[0]['data'].to(device,dtype=torch.float)
+            sourceLab1 = data[0]['label'].to(device,dtype=torch.float)
+            sourceLab1 = torch.max(sourceLab1,1)[1]
+
+            sourceDat2 = data[1]['data'].to(device,dtype=torch.float)
+            sourceLab2 = data[1]['label'].to(device,dtype=torch.float)
+            sourceLab2 = torch.max(sourceLab2,1)[1]
+
+            if all(sourceLab1==sourceLab2):
+                inLab = sourceLab1
+            else:
+                print('S1 data and S2 data are not corresponded.')
+
+            # predicting
+            output = model(sourceDat1,sourceDat2)
+            # prediction error
+            loss = criterion(output, inLab)
+            testLoss += loss.item()*sourceDat1.size(0)
+
+            _, predTmp = torch.max(output.data, 1) # get the index of the max log-probability 
+            for l, p in zip(inLab.view(-1), predTmp.view(-1)):
+                confusion_matrix[l.long(), p.long()] += 1
+
+            if batch_size==np.squeeze(predTmp.cpu().numpy()).shape[0]:
+                pred[i_batch*batch_size:(i_batch+1)*batch_size] = np.squeeze(predTmp.cpu().numpy())
+            else:
+                pred[i_batch*batch_size:] = np.squeeze(predTmp.cpu().numpy())
+
+    testLoss = testLoss/nb_test_samples
+    oa = np.trace(confusion_matrix)/nb_test_samples*100
+    pa = np.diagonal(confusion_matrix)/np.sum(confusion_matrix,1)
+    aa = np.sum(pa[~np.isnan(pa)])/np.sum(~np.isnan(pa))*100
+    ua = np.diagonal(confusion_matrix)/np.sum(confusion_matrix,0)
+    # kappa coefficient
+    po = oa
+    pe = np.sum(np.sum(confusion_matrix,0)*np.sum(confusion_matrix,1))/np.square(np.sum(confusion_matrix))
+    ka = (po-pe)/(1-pe)
+    return pred, testLoss, oa, aa, ka, pa, ua, confusion_matrix
+
+
 
 
 
