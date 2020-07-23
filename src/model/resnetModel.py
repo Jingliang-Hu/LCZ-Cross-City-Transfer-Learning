@@ -280,7 +280,9 @@ class LeNet_decision_fusion(nn.Module):
         self.fc2 = nn.Linear(128, nbClass)
         self.LogSoftMax_decistion = nn.LogSoftmax(dim=1)
 
-        self.fusionFC = nn.Linear(nbClass*2,nbClass)
+        self.fusionFC1 = nn.Linear(nbClass*2,128)
+        self.fusionFC2 = nn.Linear(128,nbClass)
+
 
     def forward(self, x1, x2):
         x1 = self.pool(F.relu(self.conv1_x1(x1)))
@@ -296,7 +298,8 @@ class LeNet_decision_fusion(nn.Module):
         x2 = self.LogSoftMax_decistion(self.fc2(x2))
 
         fus = torch.cat([x1,x2],dim=1)
-        fus = F.relu(self.fusionFC(fus))
+        fus = F.relu(self.fusionFC1(fus))
+        fus = self.fusionFC2(fus)
         return fus
 
 
