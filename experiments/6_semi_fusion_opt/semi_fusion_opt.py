@@ -26,15 +26,15 @@ print("parameter setting...")
 paraDict = {
         ### network parameters
         "nbBatch": 256,
-        #"nbEpoch": 728,
-        "nbEpoch": 1,
+        "nbEpoch": 728,
+        #"nbEpoch": 1,
         "learningRate": 1e-4,
 
         ### data loading parameters
-        # "trainData": "lcz42", # training data could be the training data of LCZ42 data, or data of one of the cultural-10 city
-        # "testData": "cul10",  # testing data could be all the data of the cultural-10 cities, or one of them.
-        "trainData": "munich", 
-        "testData": "moscow",  
+        "trainData": "lcz42", # training data could be the training data of LCZ42 data, or data of one of the cultural-10 city
+        "testData": "cul10",  # testing data could be all the data of the cultural-10 cities, or one of them.
+        #"trainData": "munich", 
+        #"testData": "moscow",  
         
         "normalization_s2":"cms", # "ms": mean-std normalization, patch-wise
         "datFlag_s2":2, # data selection: sentinel-1, sentinel-2, or both
