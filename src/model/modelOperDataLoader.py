@@ -733,9 +733,9 @@ def test_feature_level_fusion(model,device,data_loaders,criterion):
                 pred[i_batch*batch_size:] = np.squeeze(predTmp.cpu().numpy())
 
     testLoss = testLoss/nb_test_samples
-    oa = np.trace(confusion_matrix)/nb_test_samples*100
+    oa = np.trace(confusion_matrix)/nb_test_samples
     pa = np.diagonal(confusion_matrix)/np.sum(confusion_matrix,1)
-    aa = np.sum(pa[~np.isnan(pa)])/np.sum(~np.isnan(pa))*100
+    aa = np.sum(pa[~np.isnan(pa)])/np.sum(~np.isnan(pa))
     ua = np.diagonal(confusion_matrix)/np.sum(confusion_matrix,0)
     # kappa coefficient
     po = oa
@@ -789,9 +789,9 @@ def test_data_level_fusion(model,device,data_loaders,criterion):
                 pred[i_batch*batch_size:] = np.squeeze(predTmp.cpu().numpy())
 
     testLoss = testLoss/nb_test_samples
-    oa = np.trace(confusion_matrix)/nb_test_samples*100
+    oa = np.trace(confusion_matrix)/nb_test_samples
     pa = np.diagonal(confusion_matrix)/np.sum(confusion_matrix,1)
-    aa = np.sum(pa[~np.isnan(pa)])/np.sum(~np.isnan(pa))*100
+    aa = np.sum(pa[~np.isnan(pa)])/np.sum(~np.isnan(pa))
     ua = np.diagonal(confusion_matrix)/np.sum(confusion_matrix,0)
     # kappa coefficient
     po = oa
@@ -799,6 +799,106 @@ def test_data_level_fusion(model,device,data_loaders,criterion):
     ka = (po-pe)/(1-pe)
     return pred, testLoss, oa, aa, ka, pa, ua, confusion_matrix
 
+
+def train_semi_fusion_opt(students, data_loaders, optimizers, device, classification_loss, consistency_loss, numEpoch):
+    nb_streams = len(students)
+    nb_train_samples = len(data_loaders[0].dataset)
+    nb_test_samples = len(data_loaders[4].dataset)
+    if nb_train_samples<nb_test_samples:
+        nb_samples = nb_train_samples
+    else:
+        nb_samples = nb_test_samples
+
+    nb_batches = len(data_loaders[0])
+    print('The number of samples in source domain: % d' % (nb_train_samples))
+    print('The number of samples in target domain: % d' % (nb_test_samples))
+
+    cla_loss_train = np.zeros((numEpoch, nb_streams))
+    con_loss_train = np.zeros((numEpoch, nb_streams))
+    cla_acc_train = np.zeros((numEpoch, nb_streams))
+    cla_loss_test = np.zeros((numEpoch, nb_streams))
+    cla_acc_test = np.zeros((numEpoch, nb_streams))
+    cla_averacc_test = np.zeros((numEpoch, nb_streams))
+    for i in range(nb_streams):
+        students[i].train()
+
+    # start training
+    print(" ----------------------------------------- ")
+    # training
+    for epoch in range(numEpoch):
+        print('+................................................+')
+        print('Epoch %d:' % (epoch+1))
+        running_loss_class = np.zeros((nb_streams))
+        running_loss_consis = np.zeros((nb_streams))
+        correct = np.zeros((nb_streams))
+        # iterations in batches
+        print("Number of batches (%d in total): " % (nb_batches))
+        for i, data in tqdm(enumerate(zip(data_loaders[0],data_loaders[1],data_loaders[2],data_loaders[3],data_loaders[4],data_loaders[5]))):
+            targetDat_s1 = data[4]['data'].to(device,dtype=torch.float)
+            targetDat_s2 = data[5]['data'].to(device,dtype=torch.float)
+
+            sourceLab = []
+            stream_out_source = []
+            stream_out_target = []
+            stream_out_target_prob = []
+            class_loss = []
+            target_aver_prob = 0
+
+            for j in range(nb_streams):
+                sourceDat = data[j]['data'].to(device,dtype=torch.float)
+                sourceLab.append(data[j]['label'].to(device,dtype=torch.float))
+                sourceLab[j] = torch.max(sourceLab[j],1)[1]
+                stream_out_source.append(students[j](sourceDat))
+                class_loss.append(classification_loss(stream_out_source[j],sourceLab[j]))
+
+                if j<2:
+                    stream_out_target.append(students[j](targetDat_s1))
+                    stream_out_target_prob.append(F.softmax(stream_out_target[j],dim=1))
+                else:
+                    stream_out_target.append(students[j](targetDat_s2))
+                    stream_out_target_prob.append(F.softmax(stream_out_target[j],dim=1))
+
+
+            # consistent loss
+            target_aver_prob = torch.zeros(stream_out_target_prob[0].shape).to(device,dtype=torch.float)
+            for x in stream_out_target_prob:
+                target_aver_prob += x
+            target_aver_prob = (stream_out_target_prob[2]+stream_out_target_prob[3])/2
+
+            consis_loss = []
+            loss = []
+            for j in range(nb_streams):
+                consis_loss.append(consistency_loss(stream_out_target_prob[j],target_aver_prob))
+                loss.append(class_loss[j]+consis_loss[j])
+
+                optimizers[j].zero_grad()
+                if j == nb_streams:
+                    loss[j].backward()
+                else:
+                    loss[j].backward(retain_graph=True)
+                optimizers[j].step()
+
+                running_loss_class[j] += class_loss[j].item()*sourceDat.size(0)
+                running_loss_consis[j] += consis_loss[j].item()*sourceDat.size(0)
+                _, predicted_s1 = torch.max(stream_out_source[j].data, 1)
+                correct[j] += predicted_s1.eq(sourceLab[j]).sum().item()
+
+        for j in range(nb_streams):
+            cla_loss_train[epoch,j] = running_loss_class[j]/nb_samples
+            con_loss_train[epoch,j] = running_loss_consis[j]/nb_samples
+            cla_acc_train[epoch,j] = correct[j]/nb_samples*100
+            if j<2:
+                _, cla_loss_test[epoch, j], cla_acc_test[epoch, j], cla_averacc_test[epoch, j] = test(students[j],device,data_loaders[4],classification_loss)
+            else:
+                _, cla_loss_test[epoch, j], cla_acc_test[epoch, j], cla_averacc_test[epoch, j] = test(students[j],device,data_loaders[5],classification_loss)
+
+            # print
+            print('Stream %d: train class loss: %.4f; train consis loss: %.4f; train acc: %.4f; test acc: %.4f; test averacc: %.4f' % (j, cla_loss_train[epoch,j], con_loss_train[epoch,j], cla_acc_train[epoch,j], cla_acc_test[epoch,j],cla_averacc_test[epoch,j]))
+
+
+
+    print(' --- training done --- ')
+    return students, cla_loss_train, cla_acc_train, cla_loss_test, cla_acc_test, con_loss_train, cla_averacc_test
 
 
 
