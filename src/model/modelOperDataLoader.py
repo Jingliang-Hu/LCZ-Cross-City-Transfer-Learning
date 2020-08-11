@@ -557,6 +557,164 @@ def train_multi_ensemble(students, data_loaders, optimizers, device, classificat
     return students, cla_loss_train, cla_acc_train, cla_loss_test, cla_acc_test, con_loss_train, cla_averacc_test
 
 
+def prediction_dual_fusion_student(model, device, data_loaders, criterion):
+    model[0].eval()
+    model[1].eval()
+
+    nb_class = data_loaders[0].dataset.label.shape[1]
+    confusion_matrix = np.zeros((nb_class,nb_class))
+    label_consist_check = 0
+
+    with torch.no_grad():
+        for i_batch, sample in enumerate(zip(data_loaders[0], data_loaders[1])):
+            inDat_s1 = sample[0]['data'].to(device,dtype=torch.float)
+            inLab_s1 = sample[0]['label'].to(device,dtype=torch.float)
+            inLab_s1 = torch.max(inLab_s1,1)[1]
+            inDat_s2 = sample[1]['data'].to(device,dtype=torch.float)
+            inLab_s2 = sample[1]['label'].to(device,dtype=torch.float)
+            inLab_s2 = torch.max(inLab_s2,1)[1]
+            label_consist_check+=torch.sum(inLab_s1-inLab_s2)
+
+            # predicting
+            output = model[0](inDat_s1, inDat_s2)
+            output += model[1](inDat_s1, inDat_s2)
+
+            _, pred = torch.max(output.data, 1) # get the index of the max log-probability
+            for l, p in zip(inLab_s1.view(-1), pred.view(-1)):
+                confusion_matrix[l.long(), p.long()] += 1
+
+    print('label consistent check: %d' %(label_consist_check))
+
+    pa = np.diagonal(confusion_matrix)/np.sum(confusion_matrix,1)
+    ua = np.diagonal(confusion_matrix)/np.sum(confusion_matrix,0)
+    oa = np.trace(confusion_matrix)/np.sum(confusion_matrix)
+    aa = np.sum(pa[~np.isnan(pa)])/np.sum(~np.isnan(pa))
+    # kappa coefficient
+    po = oa
+    pe = np.sum(np.sum(confusion_matrix,0)*np.sum(confusion_matrix,1))/np.square(np.sum(confusion_matrix))
+    ka = (po-pe)/(1-pe)
+    print("Number of test samples: %d" %(len(data_loaders[0].dataset)))
+    print("Overall accuracy: %.4f; Average accuracy: %.4f " %(oa, aa))
+    print("Producer accuracy: ")
+    print(pa)
+    print("User accuracy: " )
+    print(ua)
+    return confusion_matrix,oa,aa,ka,pa,ua
+
+
+
+
+
+
+def train_dual_fusion_student(model, data_loaders, optimizer, device, classification_loss, consistency_loss, numEpoch):
+    nb_train_samples = len(data_loaders[0].dataset)
+    nb_test_samples = len(data_loaders[4].dataset)
+    nb_batches = len(data_loaders[0])
+    print('The number of samples in source domain: % d' % (nb_train_samples))
+    print('The number of samples in target domain: % d' % (nb_test_samples))
+
+    tra_Loss_s1 = np.zeros((numEpoch))
+    tra_Loss_s2 = np.zeros((numEpoch))
+    tra_Arry_s1 = np.zeros((numEpoch))
+    tra_Arry_s2 = np.zeros((numEpoch))
+    tra_Loss_consis = np.zeros((numEpoch))
+
+    val_Loss_s1 = np.zeros((numEpoch))
+    val_Loss_s2 = np.zeros((numEpoch))
+    val_Arry_s1 = np.zeros((numEpoch))
+    val_Arry_s2 = np.zeros((numEpoch))
+    val_Aver_s1 = np.zeros((numEpoch))
+    val_Aver_s2 = np.zeros((numEpoch))
+
+
+    model[0].train()
+    model[1].train()
+    # start training
+    print(" ----------------------------------------- ")
+    # training
+    for epoch in range(numEpoch):
+        print('+................................................+')
+        print('Epoch %d:' % (epoch+1))
+        running_loss_s1 = 0.0
+        running_loss_s2 = 0.0
+        running_loss_c = 0.0
+        correct_s1 = 0.0
+        correct_s2 = 0.0
+
+        # iterations in batches
+        print("Number of batches (%d in total): " % (nb_batches))
+        for i, data in tqdm(enumerate(zip(data_loaders[0],data_loaders[1],data_loaders[2],data_loaders[3],data_loaders[4],data_loaders[5]))):
+            targetDat1 = data[4]['data'].to(device,dtype=torch.float)
+            targetDat2 = data[5]['data'].to(device,dtype=torch.float)
+
+            sourceDat1 = data[0]['data'].to(device,dtype=torch.float)
+            sourceLab1 = data[0]['label'].to(device,dtype=torch.float)
+            sourceLab1 = torch.max(sourceLab1,1)[1]
+
+            sourceDat2 = data[2]['data'].to(device,dtype=torch.float)
+            sourceLab2 = data[2]['label'].to(device,dtype=torch.float)
+            sourceLab2 = torch.max(sourceLab2,1)[1]
+
+            sourceDat3 = data[1]['data'].to(device,dtype=torch.float)
+            sourceLab3 = data[1]['label'].to(device,dtype=torch.float)
+            sourceLab3 = torch.max(sourceLab3,1)[1]
+
+            sourceDat4 = data[3]['data'].to(device,dtype=torch.float)
+            sourceLab4 = data[3]['label'].to(device,dtype=torch.float)
+            sourceLab4 = torch.max(sourceLab4,1)[1]
+
+            # zero the parameter gradients for each minibatch
+            # forward
+            source_output_s1 = model[0](sourceDat1,sourceDat2)
+            source_output_s2 = model[1](sourceDat3,sourceDat4)
+            class_loss_s1 = classification_loss(source_output_s1,sourceLab1)
+            class_loss_s2 = classification_loss(source_output_s2,sourceLab3)
+
+            target_output_prob_s1 = F.softmax(model[0](targetDat1,targetDat2),dim=1)
+            target_output_prob_s2 = F.softmax(model[1](targetDat1,targetDat2),dim=1)
+            consis_loss = consistency_loss(target_output_prob_s1,target_output_prob_s2)
+
+            loss_s1 = class_loss_s1 + consis_loss
+            loss_s2 = class_loss_s2 + consis_loss
+
+            optimizer[0].zero_grad()
+            loss_s1.backward(retain_graph=True)
+            optimizer[0].step()
+
+            optimizer[1].zero_grad()
+            loss_s2.backward()
+            optimizer[1].step()
+
+            running_loss_s1 += class_loss_s1.item()
+            running_loss_s2 += class_loss_s2.item()
+            running_loss_c += consis_loss.item()
+
+            _, predicted_s1 = torch.max(source_output_s1.data, 1)
+            _, predicted_s2 = torch.max(source_output_s2.data, 1)
+
+            correct_s1 += predicted_s1.eq(sourceLab1).sum().item()
+            correct_s2 += predicted_s2.eq(sourceLab3).sum().item()
+
+        # training loss and accuracy
+        tra_Loss_s1[epoch] = running_loss_s1/np.ceil(nb_train_samples/nb_batches)
+        tra_Loss_s2[epoch] = running_loss_s2/np.ceil(nb_train_samples/nb_batches)
+        tra_Loss_consis[epoch] = running_loss_c/np.ceil(nb_train_samples/nb_batches)
+        tra_Arry_s1[epoch] = correct_s1/nb_train_samples*100
+        tra_Arry_s2[epoch] = correct_s2/nb_train_samples*100
+
+        # validation loss and accuracy
+        _, val_Loss_s1[epoch], val_Arry_s1[epoch], val_Aver_s1[epoch], _, _, _, _, = test_feature_level_fusion(model[0],device,data_loaders[2:],classification_loss)
+# validation loss and accuracy
+        _, val_Loss_s2[epoch], val_Arry_s2[epoch], val_Aver_s2[epoch], _, _, _, _, = test_feature_level_fusion(model[1],device,data_loaders[2:],classification_loss)
+
+        print('Student 1: train class loss: %.4f; train consis loss: %.4f; train acc: %.4f; test acc: %.4f; test averacc: %.4f' % (tra_Loss_s1[epoch], tra_Loss_consis[epoch], tra_Arry_s1[epoch], val_Arry_s1[epoch], val_Aver_s1[epoch]))
+        print('Student 2: train class loss: %.4f; train consis loss: %.4f; train acc: %.4f; test acc: %.4f; test averacc: %.4f' % (tra_Loss_s2[epoch], tra_Loss_consis[epoch], tra_Arry_s2[epoch], val_Arry_s2[epoch], val_Aver_s2[epoch]))
+
+    return model, tra_Loss_s1, tra_Loss_s2, tra_Arry_s1, tra_Arry_s2, val_Loss_s1, val_Arry_s1, val_Aver_s1, val_Loss_s2, val_Arry_s2, val_Aver_s2, tra_Loss_consis
+
+
+
+
 def train_feature_level_fusion(model, data_loaders, optimizer, device, classification_loss, numEpoch):
     nb_train_samples = len(data_loaders[0].dataset)
     nb_test_samples = len(data_loaders[2].dataset)

@@ -39,9 +39,10 @@ class LCZDataset(Dataset):
     """
     pytorch iterative data loader costomized to lcz data
     """
-    def __init__(self, dataFile, dataFlag, normalization, transform=transforms.Compose([ToTensor()]),shaffle=1):
+    def __init__(self, dataFile, dataFlag, normalization, transform=transforms.Compose([ToTensor()]), shaffle=1, shuffleSeed=0):
         self.dataFile = dataFile
         self.shaffle = shaffle
+        self.shuffleSeed = shuffleSeed
         self.dataFlag = dataFlag
         self.transform = transform
         self.loadData()
@@ -88,7 +89,10 @@ class LCZDataset(Dataset):
         del fid
 
         if self.shaffle:
-            np.random.seed(0)
+            if self.shuffleSeed == 0:
+                np.random.seed(0)
+            else:
+                np.random.seed(self.shuffleSeed)
             idx = np.argsort(np.random.rand(self.label.shape[0])).astype(int)
             self.label = self.label[idx,:]
             self.data = self.data[idx,:,:,:]
@@ -111,7 +115,7 @@ class LCZDataset(Dataset):
         return sample
 
 
-def lczIterDataSet(envPath,train,test,datFlag,normalization,transform=transforms.Compose([ToTensor()]),shaffle=0):
+def lczIterDataSet(envPath,train,test,datFlag,normalization,transform=transforms.Compose([ToTensor()]),shaffle=0,shuffleSeed=0):
     # load training data
     if train=="lcz42":
         datDir = envPath + '/data/train/train.h5'
@@ -133,7 +137,7 @@ def lczIterDataSet(envPath,train,test,datFlag,normalization,transform=transforms
         datDir = envPath + '/data/train/train_afri.h5'
     else:
         datDir = envPath+'/data/test/'+train+'.h5'
-    trainDataSet = LCZDataset(datDir,datFlag,normalization,transform,shaffle)
+    trainDataSet = LCZDataset(datDir,datFlag,normalization,transform,shaffle,shuffleSeed)
 
     # load testing data
     if test=="cul10":
@@ -155,7 +159,7 @@ def lczIterDataSet(envPath,train,test,datFlag,normalization,transform=transforms
     else:
         datDir = envPath+'/data/test/'+test+'.h5'
 
-    testDataSet = LCZDataset(datDir,datFlag,normalization,transform,shaffle)
+    testDataSet = LCZDataset(datDir,datFlag,normalization,transform,shaffle,shuffleSeed)
         
     return trainDataSet,testDataSet    
 
