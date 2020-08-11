@@ -699,8 +699,8 @@ def train_dual_fusion_student(model, data_loaders, optimizer, device, classifica
         tra_Loss_s1[epoch] = running_loss_s1/np.ceil(nb_train_samples/nb_batches)
         tra_Loss_s2[epoch] = running_loss_s2/np.ceil(nb_train_samples/nb_batches)
         tra_Loss_consis[epoch] = running_loss_c/np.ceil(nb_train_samples/nb_batches)
-        tra_Arry_s1[epoch] = correct_s1/nb_train_samples*100
-        tra_Arry_s2[epoch] = correct_s2/nb_train_samples*100
+        tra_Arry_s1[epoch] = correct_s1/nb_train_samples
+        tra_Arry_s2[epoch] = correct_s2/nb_train_samples
 
         # validation loss and accuracy
         _, val_Loss_s1[epoch], val_Arry_s1[epoch], val_Aver_s1[epoch], _, _, _, _, = test_feature_level_fusion(model[0],device,data_loaders[2:],classification_loss)
