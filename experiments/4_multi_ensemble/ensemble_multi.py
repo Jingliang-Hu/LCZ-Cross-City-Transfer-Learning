@@ -27,21 +27,25 @@ paraDict = {
         ### network parameters
         "nbBatch": 256,
         "nbEpoch": 728,
+        #"nbEpoch": 1,
+
         "learningRate": 1e-4,
 
         ### data loading parameters
         "trainData": "lcz42", # training data could be the training data of LCZ42 data, or data of one of the cultural-10 city
+        #"trainData": "munich",
         "testData": "cul10",  # testing data could be all the data of the cultural-10 cities, or one of them.
+        #"testData": "moscow",
         
         "normalization":"cms", # "ms": mean-std normalization, patch-wise
         "datFlag":2, # data selection: sentinel-1, sentinel-2, or both
         
         ### model name
-        "modelName":'LeNet_ensemble', # model name
+        "modelName":'ResNet_18', # model name
         "nbStreams":5,
         }
 
-cudaNow = torch.device('cuda:5')
+cudaNow = torch.device('cuda:0')
 
 nbBatch = paraDict["nbBatch"]
 nbEpoch = paraDict["nbEpoch"]
@@ -81,7 +85,10 @@ import resnetModel
 # student2 = resnetModel.resnet18(pretrained=False, inChannel=trainDataSet.nbChannel()).to(cudaNow)
 students = []
 for i in range(0,nbStreams):
-    students.append(resnetModel.LeNet(inChannel=trainDataSet.nbChannel(), nbClass = trainDataSet.label.shape[1]).to(cudaNow))
+    if modelName == "LeNet_ensemble":
+        students.append(resnetModel.LeNet(inChannel=trainDataSet.nbChannel(), nbClass = trainDataSet.label.shape[1]).to(cudaNow))
+    elif modelName == "ResNet_18":
+        students.append(resnetModel.resnet18(pretrained=False, inChannel=trainDataSet.nbChannel()).to(cudaNow))
 
 # predModel_s1 = resnetModel.LeNet(inChannel=trainDataSet.nbChannel(), nbClass = trainDataSet.label.shape[1]).to(cudaNow)
 # predModel_s2 = resnetModel.LeNet(inChannel=trainDataSet.nbChannel(), nbClass = trainDataSet.label.shape[1]).to(cudaNow)
@@ -103,9 +110,9 @@ for i in range(0,nbStreams):
 '''
 STEP FOUR: Train the network
 '''
-import modelOperDataLoader_dev
+import modelOperDataLoader
 
-students, cla_loss_train, cla_acc_train, cla_loss_test, cla_acc_test, con_loss_train, cla_averacc_test = modelOperDataLoader_dev.train_multi_ensemble(students, data_loaders, optimizers, cudaNow, classification_loss, consistency_loss, nbEpoch)
+students, cla_loss_train, cla_acc_train, cla_loss_test, cla_acc_test, con_loss_train, cla_averacc_test = modelOperDataLoader.train_multi_ensemble(students, data_loaders, optimizers, cudaNow, classification_loss, consistency_loss, nbEpoch)
 
 '''
 STEP FIVE: Test the network
@@ -145,7 +152,7 @@ fid.close()
 '''
 STEP SEVEN: Predict with the student1 model
 '''
-confusion_matrix,oa,aa,ka,pa,ua = modelOperDataLoader_dev.multiStreamConfusionMatrix(students, cudaNow, data_loaders[nbStreams], classification_loss)
+confusion_matrix,oa,aa,ka,pa,ua = modelOperDataLoader.multiStreamConfusionMatrix(students, cudaNow, data_loaders[nbStreams], classification_loss)
 
 # save accuracy
 fid = h5py.File(os.path.join(outcomeDir,'test_accuracy.h5'),'w')
@@ -157,7 +164,7 @@ fid.create_dataset('pa',data=pa)
 fid.create_dataset('ua',data=ua)
 fid.close()
 # plot confusion matrix
-cm_disp_obj = modelOperDataLoader_dev.ConfusionMatrixDisplay(confusion_matrix,np.linspace(1,confusion_matrix.shape[0],confusion_matrix.shape[0]))
+cm_disp_obj = modelOperDataLoader.ConfusionMatrixDisplay(confusion_matrix,np.linspace(1,confusion_matrix.shape[0],confusion_matrix.shape[0]))
 cm_disp = cm_disp_obj.plot()
 cm_disp.figure_.savefig(os.path.join(outcomeDir,'confusion_matrix.png'))
 
@@ -167,7 +174,7 @@ cm_disp.figure_.savefig(os.path.join(outcomeDir,'confusion_matrix.png'))
 '''
 plot outcomes
 '''
-pth = modelOperDataLoader_dev.plotTrainHistory(outcomeDir,paraDict["modelName"])
+pth = modelOperDataLoader.plotTrainHistory(outcomeDir,paraDict["modelName"])
 pth.plotHistory()
 
 
