@@ -13,13 +13,25 @@ import matplotlib.pyplot as plt
 class ToTensor(object):
     """Convert ndarrays in sample to Tensors."""    
     def __call__(self, sample):
-        data, label = sample['data'], sample['label']
-        # swap color axis because
-        # numpy image: H x W x C
-        # torch image: C X H X W
-        data = data.transpose((2, 0, 1))
-        return {'data': torch.from_numpy(data),
-                'label': torch.from_numpy(label)}
+        if len(sample)==2: 
+            data, label = sample['data'], sample['label']
+            # swap color axis because
+            # numpy image: H x W x C
+            # torch image: C X H X W
+            data = data.transpose((2, 0, 1))
+            return {'data': torch.from_numpy(data),
+                    'label': torch.from_numpy(label)}
+
+        elif len(sample)==3:
+            data1, data2, label = sample['data1'], sample['data2'], sample['label']
+            # swap color axis because
+            # numpy image: H x W x C
+            # torch image: C X H X W
+            data1 = data1.transpose((2, 0, 1))
+            data2 = data2.transpose((2, 0, 1))
+            return {'data1': torch.from_numpy(data1),
+                    'data2': torch.from_numpy(data2),
+                    'label': torch.from_numpy(label)}
 
 
 class randomNoise(object):
@@ -51,14 +63,36 @@ class LCZDataset(Dataset):
 
 
     def dataNormalization(self):
-        if self.normalization=='pms':
-            print("patch-wise mean standard deviation normalization")
-            self.data = patch_mean_Std_Normalization(self.data)
-        elif self.normalization=='cms':
-            print("channel-wise mean standard deviation normalization")
-            self.data = channel_mean_Std_Normalization(self.data)       
-        else:
-            print("no normalization is carried out")
+        if self.dataFlag==1 or self.dataFlag==2:
+            if self.normalization=='pms':
+                print("patch-wise mean standard deviation normalization")
+                self.data = patch_mean_Std_Normalization(self.data)
+            elif self.normalization=='cms':
+                print("channel-wise mean standard deviation normalization")
+                self.data = channel_mean_Std_Normalization(self.data)      
+            elif self.normalization=='no': 
+                print("no normalization is carried out")
+            else:
+                print("no setting for the normalization so no normalization is carried out")
+
+        elif self.dataFlag==0:
+            if self.normalization[0]=='pms':
+                print("S1 data: patch-wise mean standard deviation normalization")
+                self.data = patch_mean_Std_Normalization(self.dat_s1)
+            elif self.normalization[0]=='cms':
+                print("S1 data: channel-wise mean standard deviation normalization")
+                self.data = channel_mean_Std_Normalization(self.dat_s1)
+            elif self.normalization[0]=='no':
+                print("S1 data: no normalization is carried out")
+
+            if self.normalization[1]=='pms':
+                print("S2 data: patch-wise mean standard deviation normalization")
+                self.data = patch_mean_Std_Normalization(self.dat_s2)
+            elif self.normalization[1]=='cms':
+                print("S2 data: channel-wise mean standard deviation normalization")
+                self.data = channel_mean_Std_Normalization(self.dat_s2)
+            elif self.normalization[1]=='no':
+                print("S2 data: no normalization is carried out")
 
 
     def __len__(self):
@@ -71,7 +105,7 @@ class LCZDataset(Dataset):
         elif self.dataFlag ==2:
             nb_channel = np.array(fid['x_2']).shape[3]
         elif self.dataFlag ==0:
-            nb_channel = np.array(fid['x_1']).shape[3]+np.array(fid['x_2']).shape[3]
+            nb_channel = [np.array(fid['x_1']).shape[3],np.array(fid['x_2']).shape[3]]
         fid.close()
         del fid
         return nb_channel
@@ -84,7 +118,10 @@ class LCZDataset(Dataset):
         elif self.dataFlag == 2:
            self.data = np.array(fid['x_2'])
         elif self.dataFlag == 0:
-           self.data = np.concatenate((np.array(fid['x_1']),np.array(fid['x_2'])),axis=3)
+           self.dat_s1 = np.array(fid['x_1'])
+           self.dat_s2 = np.array(fid['x_2'])
+        else:
+           print('dataFlag can only be set as 0, 1, or 2')
         fid.close()
         del fid
 
@@ -95,7 +132,11 @@ class LCZDataset(Dataset):
                 np.random.seed(self.shuffleSeed)
             idx = np.argsort(np.random.rand(self.label.shape[0])).astype(int)
             self.label = self.label[idx,:]
-            self.data = self.data[idx,:,:,:]
+            if self.dataFlag == 0:
+                self.dat_s1 = self.dat_s1[idx,:,:,:]
+                self.dat_s2 = self.dat_s2[idx,:,:,:]
+            else:
+                self.data = self.data[idx,:,:,:]
 
     def setTimes(self, times):
         self.times = times
@@ -107,9 +148,16 @@ class LCZDataset(Dataset):
     def __getitem__(self,idx):
         if torch.is_tensor(idx):
             idx = idx.tolist()
-        data = self.data[idx,:,:,:]
-        label = self.label[idx,:]                            
-        sample = {'data': data, 'label': label}
+        if self.dataFlag == 1 or self.dataFlag ==2:
+            data = self.data[idx,:,:,:]
+            label = self.label[idx,:]                            
+            sample = {'data': data, 'label': label}
+        elif self.dataFlag == 0:
+            data1 = self.dat_s1[idx,:,:,:]
+            data2 = self.dat_s2[idx,:,:,:]
+            label = self.label[idx,:]
+            sample = {'data1': data1, 'data2':data2, 'label': label}
+
         if self.transform:                            
             sample = self.transform(sample)
         return sample

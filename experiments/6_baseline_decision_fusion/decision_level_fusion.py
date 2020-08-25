@@ -26,22 +26,20 @@ print("parameter setting...")
 paraDict = {
         ### network parameters
         "nbBatch": 256,
-        "nbEpoch": 100,
-        #"nbEpoch": 1,
+        #"nbEpoch": 100,
+        "nbEpoch": 1,
 
         "learningRate": 1e-4,
 
         ### data loading parameters
-        "trainData": "lcz42", # training data could be the training data of LCZ42 data, or data of one of the cultural-10 city
-        #"trainData": "moscow",
-        "testData": "cul10",  # testing data could be all the data of the cultural-10 cities, or one of them.
-        #"testData": "munich",
+        #"trainData": "lcz42", # training data could be the training data of LCZ42 data, or data of one of the cultural-10 city
+        "trainData": "moscow",
+        #"testData": "cul10",  # testing data could be all the data of the cultural-10 cities, or one of them.
+        "testData": "munich",
         
+        "datFlag":0,
         "normalization_s2":"cms", # "ms": mean-std normalization, patch-wise
-        "datFlag_s2":2, # data selection: sentinel-1, sentinel-2, or both
-
         "normalization_s1":"no", # "ms": mean-std normalization, patch-wise
-        "datFlag_s1":1, # data selection: sentinel-1, sentinel-2, or both
 
         
         ### model name
@@ -54,10 +52,10 @@ cudaNow = torch.device('cuda:1')
 nbBatch = paraDict["nbBatch"]
 nbEpoch = paraDict["nbEpoch"]
 learnRate = paraDict["learningRate"]
-datFlag_s1 = paraDict["datFlag_s1"]
-datFlag_s2 = paraDict["datFlag_s2"]
+datFlag = paraDict["datFlag"]
 modelName = paraDict["modelName"]
 nbStreams = paraDict["nbStreams"]
+normalization = [paraDict["normalization_s1"],paraDict["normalization_s2"]]
 
 '''
 initial folder saving outputs
@@ -71,22 +69,10 @@ recordExpParameters(outcomeDir,paraDict)
 '''
 STEP ONE: data loading
 '''
-trainDataSet_s1,testDataSet_s1 = lczIterDataSet(envPath,paraDict["trainData"],paraDict["testData"],datFlag_s1,paraDict["normalization_s1"],transform=transforms.Compose([ToTensor()]),shaffle=1)
-trainDataSet_s2,testDataSet_s2 = lczIterDataSet(envPath,paraDict["trainData"],paraDict["testData"],datFlag_s2,paraDict["normalization_s2"],transform=transforms.Compose([ToTensor()]),shaffle=1)
+trainDataSet,testDataSet = lczIterDataSet(envPath,paraDict["trainData"],paraDict["testData"],datFlag,normalization,transform=transforms.Compose([ToTensor()]),shaffle=1)
 
-
-
-
-# shuffle in dataloader shuffles the data in each batch
-data_loaders = []
-data_loaders.append(torch.utils.data.DataLoader(trainDataSet_s1, batch_size=nbBatch, shuffle=False))
-data_loaders.append(torch.utils.data.DataLoader(trainDataSet_s2, batch_size=nbBatch, shuffle=False))
-
-data_loaders.append(torch.utils.data.DataLoader(testDataSet_s1, batch_size=nbBatch, shuffle=False))
-data_loaders.append(torch.utils.data.DataLoader(testDataSet_s2, batch_size=nbBatch, shuffle=False))
-
-
-
+source_data_loader = torch.utils.data.DataLoader(trainDataSet, batch_size=nbBatch, shuffle=True)
+target_data_loader = torch.utils.data.DataLoader(testDataSet, batch_size=nbBatch, shuffle=True)
 
 
 
@@ -97,7 +83,7 @@ STEP TWO: initial a resnet model
 sys.path.append(os.path.abspath(envPath+"/src/model"))
 import resnetModel
 
-model = resnetModel.LeNet_decision_fusion(inChannel_1=trainDataSet_s1.nbChannel(), inChannel_2=trainDataSet_s2.nbChannel(), nbClass = trainDataSet_s2.label.shape[1]).to(cudaNow)
+model = resnetModel.LeNet_decision_fusion(inChannel_1=trainDataSet.nbChannel()[0], inChannel_2=trainDataSet.nbChannel()[1], nbClass = trainDataSet.label.shape[1]).to(cudaNow)
 
 
 '''
@@ -114,7 +100,7 @@ STEP FOUR: Train the network
 '''
 import modelOperDataLoader
 # the training script 'train_feature_level_fusion' works for both feature fusion and decision fusion
-model, cla_loss_train, cla_acc_train, cla_loss_test, cla_acc_test, cla_averacc_test = modelOperDataLoader.train_feature_level_fusion(model, data_loaders, optimizers, cudaNow, classification_loss,  nbEpoch)
+model, cla_loss_train, cla_acc_train, cla_loss_test, cla_acc_test, cla_averacc_test = modelOperDataLoader.train_feature_level_fusion_unified_loader(model, source_data_loader, target_data_loader, optimizers, cudaNow, classification_loss,  nbEpoch)
 
 '''
 STEP FIVE: Test the network
@@ -153,7 +139,7 @@ fid.close()
 STEP SEVEN: Predict with the student1 model
 '''
 import modelOperDataLoader
-_,  _, oa, aa, ka, pa, ua, confusion_matrix = modelOperDataLoader.test_feature_level_fusion(model, cudaNow, data_loaders, classification_loss)
+_,  _, oa, aa, ka, pa, ua, confusion_matrix = modelOperDataLoader.test_feature_level_fusion_unified_loader(model, cudaNow, target_data_loader, classification_loss)
 
 # save accuracy
 fid = h5py.File(os.path.join(outcomeDir,'test_accuracy.h5'),'w')

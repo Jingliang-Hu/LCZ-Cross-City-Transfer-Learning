@@ -603,6 +603,87 @@ def prediction_dual_fusion_student(model, device, data_loaders, criterion):
 
 
 
+"""
+def train_multi_fusion_student(model, source_data_loader, target_data_loader, optimizers, cudaNow, classification_loss, consistency_loss,numEpoch):
+    nb_train_samples = len(source_data_loader[0][0].dataset)
+    nb_test_samples = len(target_data_loader[0].dataset)
+    nb_batches = len(target_data_loader[0])
+    print('The number of samples in source domain: % d' % (nb_train_samples))
+    print('The number of samples in target domain: % d' % (nb_test_samples))
+    if nb_test_samples<nb_train_samples:
+        nb_samples = nb_test_samples
+    else:
+        nb_samples = nb_train_samples
+ 
+    nbStreams = len(source_data_loader)
+
+    tra_loss = []
+    tra_arry = []
+    tra_consis_loss = []
+
+    val_loss = []
+    val_arry = []
+    val_aver = []
+    for i in range(0,nbStreams):
+        tra_loss.append(np.zeros((numEpoch)))
+        tra_arry.append(np.zeros((numEpoch)))
+        tra_consis_loss.append(np.zeros((numEpoch)))
+        val_loss.append(np.zeros((numEpoch)))
+        val_arry.append(np.zeros((numEpoch)))
+        val_aver.append(np.zeros((numEpoch)))
+        model[i].train()
+
+    # start training
+    print(" ----------------------------------------- ")
+    # training
+    for epoch in range(numEpoch):
+        # initialize lists to save variables for multiple streams
+        running_loss = []
+        running_loss_c = []
+        correct = []       
+        source_output = [] 
+        class_loss = []
+        consis_loss = []
+        target_output_prob = []
+
+        for i in range(nbStreams):
+            running_loss.append(0.0)
+            running_loss_c.append(0.0)
+            correct.append(0.0)
+            source_output.append(0)
+            class_loss.append(0)
+            consis_loss.append(0)
+            target_output_prob.append(0)            
+
+        # iterations in batches
+        print("Number of batches (%d in total): " % (len(target_data_loader[0]))
+        for idx in tqdm(range(len(target_data_loader[0]))):
+            for i in range(0:nbStreams):
+                source_output[i] = model[i](source_data_loader[i][0]['data'].to(device,dtype=torch.float),source_data_loader[i][1]['data'].to(device,dtype=torch.float))
+                sourceLab = source_data_loader[i][0]['label'].to(device,dtype=torch.float)
+                sourceLab = torch.max(sourceLab,1)[1]
+
+                class_loss.append(classification_loss(source_output[i],sourceLab))
+
+                target_output_prob.append(F.softmax(model[i](target_data_loader[0]['data'].to(device,dtype=torch.float),target_data_loader[1]['data'].to(device,dtype=torch.float)),dim=1))
+
+
+
+
+
+
+            consis_loss = consistency_loss(target_output_prob_s1,target_output_prob_s2)
+
+            loss_s1 = class_loss_s1 + consis_loss
+            loss_s2 = class_loss_s2 + consis_loss
+
+            optimizer[0].zero_grad()
+            loss_s1.backward(retain_graph=True)
+            optimizer[0].step()
+
+    # to be finished
+    return 0
+"""
 
 
 
@@ -612,6 +693,10 @@ def train_dual_fusion_student(model, data_loaders, optimizer, device, classifica
     nb_batches = len(data_loaders[0])
     print('The number of samples in source domain: % d' % (nb_train_samples))
     print('The number of samples in target domain: % d' % (nb_test_samples))
+    if nb_test_samples<nb_train_samples:
+        nb_samples = nb_test_samples
+    else:
+        nb_samples = nb_train_samples
 
     tra_Loss_s1 = np.zeros((numEpoch))
     tra_Loss_s2 = np.zeros((numEpoch))
@@ -685,9 +770,10 @@ def train_dual_fusion_student(model, data_loaders, optimizer, device, classifica
             loss_s2.backward()
             optimizer[1].step()
 
-            running_loss_s1 += class_loss_s1.item()
-            running_loss_s2 += class_loss_s2.item()
-            running_loss_c += consis_loss.item()
+            nb_samples_one_batch = sourceDat1.size(0)
+            running_loss_s1 += class_loss_s1.item() * nb_samples_one_batch
+            running_loss_s2 += class_loss_s2.item() * nb_samples_one_batch
+            running_loss_c += consis_loss.item() * nb_samples_one_batch
 
             _, predicted_s1 = torch.max(source_output_s1.data, 1)
             _, predicted_s2 = torch.max(source_output_s2.data, 1)
@@ -696,11 +782,11 @@ def train_dual_fusion_student(model, data_loaders, optimizer, device, classifica
             correct_s2 += predicted_s2.eq(sourceLab3).sum().item()
 
         # training loss and accuracy
-        tra_Loss_s1[epoch] = running_loss_s1/np.ceil(nb_train_samples/nb_batches)
-        tra_Loss_s2[epoch] = running_loss_s2/np.ceil(nb_train_samples/nb_batches)
-        tra_Loss_consis[epoch] = running_loss_c/np.ceil(nb_train_samples/nb_batches)
-        tra_Arry_s1[epoch] = correct_s1/nb_train_samples
-        tra_Arry_s2[epoch] = correct_s2/nb_train_samples
+        tra_Loss_s1[epoch] = running_loss_s1/nb_samples
+        tra_Loss_s2[epoch] = running_loss_s2/nb_samples
+        tra_Loss_consis[epoch] = running_loss_c/nb_samples
+        tra_Arry_s1[epoch] = correct_s1/nb_samples
+        tra_Arry_s2[epoch] = correct_s2/nb_samples
 
         # validation loss and accuracy
         _, val_Loss_s1[epoch], val_Arry_s1[epoch], val_Aver_s1[epoch], _, _, _, _, = test_feature_level_fusion(model[0],device,data_loaders[2:],classification_loss)
@@ -711,6 +797,70 @@ def train_dual_fusion_student(model, data_loaders, optimizer, device, classifica
         print('Student 2: train class loss: %.4f; train consis loss: %.4f; train acc: %.4f; test acc: %.4f; test averacc: %.4f' % (tra_Loss_s2[epoch], tra_Loss_consis[epoch], tra_Arry_s2[epoch], val_Arry_s2[epoch], val_Aver_s2[epoch]))
 
     return model, tra_Loss_s1, tra_Loss_s2, tra_Arry_s1, tra_Arry_s2, val_Loss_s1, val_Arry_s1, val_Aver_s1, val_Loss_s2, val_Arry_s2, val_Aver_s2, tra_Loss_consis
+
+
+
+def train_feature_level_fusion_unified_loader(model, source_loader, target_loader, optimizer, device, classification_loss, numEpoch):
+    nb_train_samples = len(source_loader.dataset)
+    nb_test_samples = len(target_loader.dataset)
+
+    nb_batches = len(source_loader)
+    print('The number of samples in source domain: % d' % (nb_train_samples))
+    print('The number of samples in target domain: % d' % (nb_test_samples))
+
+    traLoss = np.zeros((numEpoch))
+    traArry = np.zeros((numEpoch))
+    valLoss = np.zeros((numEpoch))
+    valArry = np.zeros((numEpoch))
+    valAver = np.zeros((numEpoch))
+
+    model.train()
+
+    # start training
+    print(" ----------------------------------------- ")
+    # training
+    for epoch in range(numEpoch):
+        print('+................................................+')
+        print('Epoch %d:' % (epoch+1))
+        running_loss = 0.0
+        correct = 0.0
+        # iterations in batches
+        print("Number of batches (%d in total): " % (nb_batches))
+        for i, data in tqdm(enumerate(source_loader)):
+            sourceDat1 = data['data1'].to(device,dtype=torch.float)
+            sourceDat2 = data['data2'].to(device,dtype=torch.float)
+
+            inLab = data['label'].to(device,dtype=torch.float)
+            inLab = torch.max(inLab,1)[1]
+
+            # zero the parameter gradients for each minibatch
+            optimizer.zero_grad()
+            # forward
+            outputs = model(sourceDat1,sourceDat2)
+            # loss
+            loss = classification_loss(outputs, inLab)
+            # backward
+            loss.backward()
+            # optimize
+            optimizer.step()
+            # statistics
+            running_loss += loss.item() * sourceDat1.size(0)
+            _, predicted = torch.max(outputs.data, 1)
+            correct += predicted.eq(inLab).sum().item()
+        # training loss and accuracy
+        traLoss[epoch] = running_loss/nb_train_samples
+        traArry[epoch] = correct/nb_train_samples*100
+
+        # validation loss and accuracy
+        _, valLoss[epoch], valArry[epoch], valAver[epoch], _, _, _, _, = test_feature_level_fusion_unified_loader(model,device,target_loader,classification_loss)
+        # print
+        print('epoch %d: training loss: %.4f; training acc: %.2f; validation loss: %.4f; validation acc: %.2f; validation average acc: %.2f' % (epoch+1, traLoss[epoch], traArry[epoch],valLoss[epoch],valArry[epoch],valAver[epoch]))
+
+    print(' --- training done --- ')
+    return model,traLoss,traArry,valLoss,valArry,valAver
+
+
+
 
 
 
@@ -779,6 +929,66 @@ def train_feature_level_fusion(model, data_loaders, optimizer, device, classific
 
     print(' --- training done --- ')
     return model,traLoss,traArry,valLoss,valArry,valAver
+
+
+def train_data_level_fusion_unified_loader(model, source_loader, target_loader, optimizer, device, classification_loss, numEpoch):
+    nb_train_samples = len(source_loader.dataset)
+    nb_test_samples = len(target_loader.dataset)
+
+    nb_batches = len(source_loader)
+    print('The number of samples in source domain: % d' % (nb_train_samples))
+    print('The number of samples in target domain: % d' % (nb_test_samples))
+
+    traLoss = np.zeros((numEpoch))
+    traArry = np.zeros((numEpoch))
+    valLoss = np.zeros((numEpoch))
+    valArry = np.zeros((numEpoch))
+    valAver = np.zeros((numEpoch))
+
+    model.train()
+    # start training
+    print(" ----------------------------------------- ")
+    # training
+    for epoch in range(numEpoch):
+        print('+................................................+')
+        print('Epoch %d:' % (epoch+1))
+        running_loss = 0.0
+        correct = 0.0
+        # iterations in batches
+        print("Number of batches (%d in total): " % (nb_batches))
+        for i, data in tqdm(enumerate(source_loader)):
+            sourceDat1 = data['data1'].to(device,dtype=torch.float)
+            sourceDat2 = data['data2'].to(device,dtype=torch.float)
+            inLab = data['label'].to(device,dtype=torch.float)
+            inLab = torch.max(inLab,1)[1]
+            inDat = torch.cat([sourceDat1,sourceDat2],dim=1)
+
+            # zero the parameter gradients for each minibatch
+            optimizer.zero_grad()
+            # forward
+            outputs = model(inDat)
+            # loss
+            loss = classification_loss(outputs, inLab)
+            # backward
+            loss.backward()
+            # optimize
+            optimizer.step()
+            # statistics
+            running_loss += loss.item() * inDat.size(0)
+            _, predicted = torch.max(outputs.data, 1)
+            correct += predicted.eq(inLab).sum().item()
+        # training loss and accuracy
+        traLoss[epoch] = running_loss/nb_train_samples
+        traArry[epoch] = correct/nb_train_samples*100
+
+        # validation loss and accuracy
+        _, valLoss[epoch], valArry[epoch], valAver[epoch], _, _, _, _, = test_data_level_fusion_unified_loader(model,device,target_loader,classification_loss)
+        # print
+        print('epoch %d: training loss: %.4f; training acc: %.2f; validation loss: %.4f; validation acc: %.2f; validation average acc: %.2f' % (epoch+1, traLoss[epoch], traArry[epoch],valLoss[epoch],valArry[epoch],valAver[epoch]))
+
+    print(' --- training done --- ')
+    return model,traLoss,traArry,valLoss,valArry,valAver
+
 
 
 
@@ -850,6 +1060,55 @@ def train_data_level_fusion(model, data_loaders, optimizer, device, classificati
     print(' --- training done --- ')
     return model,traLoss,traArry,valLoss,valArry,valAver
 
+
+def test_feature_level_fusion_unified_loader(model,device,data_loaders,criterion):
+    model.eval()
+    nb_class = data_loaders.dataset.label.shape[1]
+    confusion_matrix = np.zeros((nb_class,nb_class))
+    nb_test_samples = len(data_loaders.dataset)
+
+    testLoss = 0.0
+    pred = np.zeros((nb_test_samples))
+    batch_size = data_loaders.batch_size
+    with torch.no_grad():
+        for i_batch, data in enumerate(data_loaders):
+            sourceDat1 = data['data1'].to(device,dtype=torch.float)
+            sourceDat2 = data['data2'].to(device,dtype=torch.float)
+
+            inLab = data['label'].to(device,dtype=torch.float)
+            inLab = torch.max(inLab,1)[1]
+            # predicting
+            output = model(sourceDat1,sourceDat2)
+            # prediction error
+            loss = criterion(output, inLab)
+            testLoss += loss.item()*sourceDat1.size(0)
+
+            _, predTmp = torch.max(output.data, 1) # get the index of the max log-probability 
+            for l, p in zip(inLab.view(-1), predTmp.view(-1)):
+                confusion_matrix[l.long(), p.long()] += 1
+
+            if batch_size==np.squeeze(predTmp.cpu().numpy()).shape[0]:
+                pred[i_batch*batch_size:(i_batch+1)*batch_size] = np.squeeze(predTmp.cpu().numpy())
+            else:
+                pred[i_batch*batch_size:] = np.squeeze(predTmp.cpu().numpy())
+
+    testLoss = testLoss/np.sum(confusion_matrix)
+    oa = np.trace(confusion_matrix).astype(np.float)/np.sum(confusion_matrix)
+    pa = np.diagonal(confusion_matrix)/np.sum(confusion_matrix,1)
+    aa = np.sum(pa[~np.isnan(pa)])/np.sum(~np.isnan(pa))
+    ua = np.diagonal(confusion_matrix)/np.sum(confusion_matrix,0)
+    # kappa coefficient
+    po = oa
+    pe = np.sum(np.sum(confusion_matrix,0)*np.sum(confusion_matrix,1))/np.square(np.sum(confusion_matrix))
+    ka = (po-pe)/(1-pe)
+    return pred, testLoss, oa, aa, ka, pa, ua, confusion_matrix
+
+
+
+
+
+
+
 def test_feature_level_fusion(model,device,data_loaders,criterion):
     model.eval()
     nb_class = data_loaders[0].dataset.label.shape[1]
@@ -890,6 +1149,52 @@ def test_feature_level_fusion(model,device,data_loaders,criterion):
             else:
                 pred[i_batch*batch_size:] = np.squeeze(predTmp.cpu().numpy())
 
+    testLoss = testLoss/np.sum(confusion_matrix)
+    oa = np.trace(confusion_matrix).astype(np.float)/np.sum(confusion_matrix)
+    pa = np.diagonal(confusion_matrix)/np.sum(confusion_matrix,1)
+    aa = np.sum(pa[~np.isnan(pa)])/np.sum(~np.isnan(pa))
+    ua = np.diagonal(confusion_matrix)/np.sum(confusion_matrix,0)
+    # kappa coefficient
+    po = oa
+    pe = np.sum(np.sum(confusion_matrix,0)*np.sum(confusion_matrix,1))/np.square(np.sum(confusion_matrix))
+    ka = (po-pe)/(1-pe)
+    return pred, testLoss, oa, aa, ka, pa, ua, confusion_matrix
+
+
+
+def test_data_level_fusion_unified_loader(model,device,data_loaders,criterion):
+    model.eval()
+    nb_class = data_loaders.dataset.label.shape[1]
+    confusion_matrix = np.zeros((nb_class,nb_class))
+    nb_test_samples = len(data_loaders.dataset)
+    testLoss = 0.0
+    pred = np.zeros((nb_test_samples))
+    batch_size = data_loaders.batch_size
+
+    with torch.no_grad():
+        for i_batch, data in enumerate(data_loaders):
+            sourceDat1 = data['data1'].to(device,dtype=torch.float)
+            sourceDat2 = data['data2'].to(device,dtype=torch.float)
+            inDat = torch.cat([sourceDat1,sourceDat2],dim=1)
+
+            inLab = data['label'].to(device,dtype=torch.float)
+            inLab = torch.max(inLab,1)[1]
+
+            # predicting
+            output = model(inDat)
+            # prediction error
+            loss = criterion(output, inLab)
+            testLoss += loss.item()*inDat.size(0)
+
+            _, predTmp = torch.max(output.data, 1) # get the index of the max log-probability 
+            for l, p in zip(inLab.view(-1), predTmp.view(-1)):
+                confusion_matrix[l.long(), p.long()] += 1
+
+            if batch_size==np.squeeze(predTmp.cpu().numpy()).shape[0]:
+                pred[i_batch*batch_size:(i_batch+1)*batch_size] = np.squeeze(predTmp.cpu().numpy())
+            else:
+                pred[i_batch*batch_size:] = np.squeeze(predTmp.cpu().numpy())
+
     testLoss = testLoss/nb_test_samples
     oa = np.trace(confusion_matrix)/nb_test_samples
     pa = np.diagonal(confusion_matrix)/np.sum(confusion_matrix,1)
@@ -900,6 +1205,7 @@ def test_feature_level_fusion(model,device,data_loaders,criterion):
     pe = np.sum(np.sum(confusion_matrix,0)*np.sum(confusion_matrix,1))/np.square(np.sum(confusion_matrix))
     ka = (po-pe)/(1-pe)
     return pred, testLoss, oa, aa, ka, pa, ua, confusion_matrix
+
 
 
 
