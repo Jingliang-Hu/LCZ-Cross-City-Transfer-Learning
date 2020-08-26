@@ -11,7 +11,7 @@ import numpy as np
 from tqdm import tqdm
 from itertools import product
 from torch.nn import functional as F
-
+import random
 
 class ImageAugmentation (object):
     def __init__(self, hflip, gaussian_noise_std=0.0):
@@ -602,12 +602,9 @@ def prediction_dual_fusion_student(model, device, data_loaders, criterion):
     return confusion_matrix,oa,aa,ka,pa,ua
 
 
-
-"""
-def train_multi_fusion_student(model, source_data_loader, target_data_loader, optimizers, cudaNow, classification_loss, consistency_loss,numEpoch):
-    nb_train_samples = len(source_data_loader[0][0].dataset)
-    nb_test_samples = len(target_data_loader[0].dataset)
-    nb_batches = len(target_data_loader[0])
+def train_multi_fusion(model, source_data, target_data, optimizers, device, classification_loss, consistency_loss,numEpoch, batch_number):
+    nb_train_samples = source_data.dat_s1.shape[0]
+    nb_test_samples = target_data.dat_s1.shape[0]
     print('The number of samples in source domain: % d' % (nb_train_samples))
     print('The number of samples in target domain: % d' % (nb_test_samples))
     if nb_test_samples<nb_train_samples:
@@ -615,75 +612,136 @@ def train_multi_fusion_student(model, source_data_loader, target_data_loader, op
     else:
         nb_samples = nb_train_samples
  
-    nbStreams = len(source_data_loader)
+    nbStreams = len(model)
+    tra_loss = [np.zeros((numEpoch))]*nbStreams
+    tra_arry = [np.zeros((numEpoch))]*nbStreams
+    tra_consis_loss = [np.zeros((numEpoch))]*nbStreams
+    val_loss = [np.zeros((numEpoch))]*nbStreams
+    val_arry = [np.zeros((numEpoch))]*nbStreams
+    val_aver = [np.zeros((numEpoch))]*nbStreams
 
-    tra_loss = []
-    tra_arry = []
-    tra_consis_loss = []
-
-    val_loss = []
-    val_arry = []
-    val_aver = []
     for i in range(0,nbStreams):
-        tra_loss.append(np.zeros((numEpoch)))
-        tra_arry.append(np.zeros((numEpoch)))
-        tra_consis_loss.append(np.zeros((numEpoch)))
-        val_loss.append(np.zeros((numEpoch)))
-        val_arry.append(np.zeros((numEpoch)))
-        val_aver.append(np.zeros((numEpoch)))
         model[i].train()
-
     # start training
-    print(" ----------------------------------------- ")
-    # training
-    for epoch in range(numEpoch):
-        # initialize lists to save variables for multiple streams
-        running_loss = []
-        running_loss_c = []
-        correct = []       
-        source_output = [] 
-        class_loss = []
-        consis_loss = []
-        target_output_prob = []
 
-        for i in range(nbStreams):
-            running_loss.append(0.0)
-            running_loss_c.append(0.0)
-            correct.append(0.0)
-            source_output.append(0)
-            class_loss.append(0)
-            consis_loss.append(0)
-            target_output_prob.append(0)            
+    # for calculating testing accuracy at each epoch 
+    target_data_loader = torch.utils.data.DataLoader(target_data, batch_size=batch_number, shuffle=True)
+
+    # training
+    for epoch in tqdm(range(numEpoch)):
+        print(" ----------------------------------------- ")
+        print('Epoch %d:' % (epoch+1))
+
+        # initialize lists to save variables for multiple streams
+        running_loss_class = [0.0]*nbStreams
+        running_loss_consis = [0.0]*nbStreams
+        correct = [0.0]*nbStreams
+
+        class_loss = [None]*nbStreams
+        consis_loss = [None]*nbStreams
+        total_loss = [None]*nbStreams
+
+        source_output = [None]*nbStreams
+        source_lab = [None]*nbStreams
+        target_output_prob = [None]*nbStreams
 
         # iterations in batches
-        print("Number of batches (%d in total): " % (len(target_data_loader[0]))
-        for idx in tqdm(range(len(target_data_loader[0]))):
-            for i in range(0:nbStreams):
-                source_output[i] = model[i](source_data_loader[i][0]['data'].to(device,dtype=torch.float),source_data_loader[i][1]['data'].to(device,dtype=torch.float))
-                sourceLab = source_data_loader[i][0]['label'].to(device,dtype=torch.float)
-                sourceLab = torch.max(sourceLab,1)[1]
+        nb_batches = np.ceil(nb_samples/batch_number)
+        nb_samples_used = (batch_number*nb_batches)
+        print("Number of batches (%d in total): " % (nb_batches))
+        for idx in range(nb_batches.astype(np.int)):
+            target_random_idx = random.sample(range(0,nb_test_samples),batch_number)
+            target_dat_1 = torch.from_numpy(target_data.dat_s1[target_random_idx,:,:,:].transpose((0, 3, 1, 2))).to(device,dtype=torch.float)
+            target_dat_2 = torch.from_numpy(target_data.dat_s2[target_random_idx,:,:,:].transpose((0, 3, 1, 2))).to(device,dtype=torch.float)
+            target_lab = torch.from_numpy(target_data.label[target_random_idx,:]).to(device,dtype=torch.float)
+            target_lab = torch.max(target_lab,1)[1]
 
-                class_loss.append(classification_loss(source_output[i],sourceLab))
+            for i in range(nbStreams):
+                source_random_idx = random.sample(range(0,nb_train_samples),batch_number)
+                source_dat_1 = torch.from_numpy(source_data.dat_s1[source_random_idx,:,:,:].transpose((0, 3, 1, 2))).to(device,dtype=torch.float)
+                source_dat_2 = torch.from_numpy(source_data.dat_s2[source_random_idx,:,:,:].transpose((0, 3, 1, 2))).to(device,dtype=torch.float)
+                source_lab[i] = torch.from_numpy(source_data.label[source_random_idx,:]).to(device,dtype=torch.float)
+                source_lab[i] = torch.max(source_lab[i],1)[1]
+                # forward
+                source_output[i] = model[i](source_dat_1,source_dat_2)
+                # classification loss
+                class_loss[i] = classification_loss(source_output[i],source_lab[i])
+                # inferences of data samples of target domain
+                target_output_prob[i] = F.softmax(model[i](target_dat_1,target_dat_2),dim=1)
 
-                target_output_prob.append(F.softmax(model[i](target_data_loader[0]['data'].to(device,dtype=torch.float),target_data_loader[1]['data'].to(device,dtype=torch.float)),dim=1))
+            target_aver_prob = torch.zeros(target_output_prob[0].shape).to(device,dtype=torch.float)
+            for x in target_output_prob:
+                target_aver_prob += x
+            target_aver_prob = target_aver_prob/nbStreams
+
+            for i in range(nbStreams):
+                consis_loss[i] = consistency_loss(target_output_prob[i],target_aver_prob)
+                total_loss[i] = consis_loss[i] + class_loss[i]
+                optimizers[i].zero_grad()
+                if i == nbStreams-1:
+                    total_loss[i].backward()
+                else:
+                    total_loss[i].backward(retain_graph=True)
+                optimizers[i].step()
+
+                running_loss_class[i] += class_loss[i].item()*batch_number
+                running_loss_consis[i] += consis_loss[i].item()*batch_number
+                _, predicted = torch.max(source_output[i].data, 1)
+                correct[i] += predicted.eq(source_lab[i]).sum().item()
+
+        for i in range(nbStreams):
+            tra_loss[i][epoch] = running_loss_class[i]/nb_samples_used
+            tra_arry[i][epoch] = correct[i]/nb_samples_used
+            tra_consis_loss[i][epoch] = running_loss_consis[i]/nb_samples_used
+            _, val_loss[i][epoch], val_arry[i][epoch], val_aver[i][epoch], _, _, _, _, = test_feature_level_fusion_unified_loader(model[i], device, target_data_loader, classification_loss)
+            print('sub_model %d: train class loss: %.4f; train consis loss: %.4f; train acc: %.4f; test acc: %.4f; test averacc: %.4f' % (i, tra_loss[i][epoch], tra_consis_loss[i][epoch], tra_arry[i][epoch], val_arry[i][epoch], val_aver[i][epoch]))
+            # print('sub_model {}: train class loss: {}; train consis loss: {}; train acc: {}; test acc: {}; test averacc: {}'.format(i, tra_loss[i][epoch], tra_consis_loss[i][epoch], tra_arry[i][epoch], val_arry[i][epoch], val_aver[i][epoch]))
+
+    return model, tra_loss, tra_arry, val_loss, val_arry, val_aver, tra_consis_loss
 
 
 
+def prediction_multi_fusion(models, device, target_data, classification_loss):
+    nbStreams = len(models)
+    for i in range(nbStreams):
+        models[i].eval()
 
+    nb_class = target_data.dataset.label.shape[1]
+    confusion_matrix = np.zeros((nb_class,nb_class))
 
+    with torch.no_grad():
+        for i_batch, sample in enumerate(target_data):
+            inDat_s1 = sample['data1'].to(device,dtype=torch.float)
+            inDat_s2 = sample['data2'].to(device,dtype=torch.float)
+            inLab = sample['label'].to(device,dtype=torch.float)
+            inLab = torch.max(inLab,1)[1]
+            # predicting
+            for i in range(nbStreams):
+                if i == 0:
+                    output = models[i](inDat_s1, inDat_s2)
+                else:
+                    output += models[i](inDat_s1, inDat_s2)
 
-            consis_loss = consistency_loss(target_output_prob_s1,target_output_prob_s2)
+            _, pred = torch.max(output.data, 1) # get the index of the max log-probability
+            for l, p in zip(inLab.view(-1), pred.view(-1)):
+                confusion_matrix[l.long(), p.long()] += 1
 
-            loss_s1 = class_loss_s1 + consis_loss
-            loss_s2 = class_loss_s2 + consis_loss
+    pa = np.diagonal(confusion_matrix)/np.sum(confusion_matrix,1)
+    ua = np.diagonal(confusion_matrix)/np.sum(confusion_matrix,0)
+    oa = np.trace(confusion_matrix)/np.sum(confusion_matrix)
+    aa = np.sum(pa[~np.isnan(pa)])/np.sum(~np.isnan(pa))
+    # kappa coefficient
+    po = oa
+    pe = np.sum(np.sum(confusion_matrix,0)*np.sum(confusion_matrix,1))/np.square(np.sum(confusion_matrix))
+    ka = (po-pe)/(1-pe)
+    print("Number of test samples: %d" %(len(target_data.dataset)))
+    print("Overall accuracy: %.4f; Average accuracy: %.4f " %(oa, aa))
+    print("Producer accuracy: ")
+    print(pa)
+    print("User accuracy: " )
+    print(ua)
+    return confusion_matrix,oa,aa,ka,pa,ua
 
-            optimizer[0].zero_grad()
-            loss_s1.backward(retain_graph=True)
-            optimizer[0].step()
-
-    # to be finished
-    return 0
-"""
 
 
 

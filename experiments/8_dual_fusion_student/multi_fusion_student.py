@@ -36,29 +36,25 @@ paraDict = {
         "trainData": "munich",
         # "testData": "cul10",  # testing data could be all the data of the cultural-10 cities, or one of them.
         "testData": "moscow",
-        
+
+        "datFlag":0, # data selection: sentinel-1, sentinel-2, or both
         "normalization_s2":"cms", # "ms": mean-std normalization, patch-wise
-        "datFlag_s2":2, # data selection: sentinel-1, sentinel-2, or both
-
         "normalization_s1":"no", # "ms": mean-std normalization, patch-wise
-        "datFlag_s1":1, # data selection: sentinel-1, sentinel-2, or both
-
         
         ### model name
         "modelName":'LeNet', # model name
-        "nbStreams":2,
+        "nbStreams":3,
         }
 
-cudaNow = torch.device('cuda:0')
+cudaNow = torch.device('cuda:1')
 
 nbBatch = paraDict["nbBatch"]
 nbEpoch = paraDict["nbEpoch"]
 learnRate = paraDict["learningRate"]
-datFlag_s1 = paraDict["datFlag_s1"]
-datFlag_s2 = paraDict["datFlag_s2"]
-
+datFlag = paraDict["datFlag"]
 modelName = paraDict["modelName"]
 nbStreams = paraDict["nbStreams"]
+normalization = [paraDict["normalization_s1"],paraDict["normalization_s2"]]
 
 
 '''
@@ -73,38 +69,19 @@ recordExpParameters(outcomeDir,paraDict)
 '''
 STEP ONE: data loading
 '''
-trainDataSet_s1,testDataSet_s1 = lczIterDataSet(envPath,paraDict["trainData"],paraDict["testData"],datFlag_s1,paraDict["normalization_s1"],transform=transforms.Compose([ToTensor()]),shaffle=1)
-trainDataSet_s2,testDataSet_s2 = lczIterDataSet(envPath,paraDict["trainData"],paraDict["testData"],datFlag_s2,paraDict["normalization_s2"],transform=transforms.Compose([ToTensor()]),shaffle=1)
 
-trainDataSet_s1_shuffle,_ = lczIterDataSet(envPath,paraDict["trainData"],paraDict["testData"],datFlag_s1,paraDict["normalization_s1"],transform=transforms.Compose([ToTensor()]),shaffle=1,shuffleSeed=42)
-trainDataSet_s2_shuffle,_ = lczIterDataSet(envPath,paraDict["trainData"],paraDict["testData"],datFlag_s2,paraDict["normalization_s2"],transform=transforms.Compose([ToTensor()]),shaffle=1,shuffleSeed=42)
-
-
-
-# TBD: check the S1 and S2 data correspondence. Data order for different streams should be different
-data_loaders = []
-data_loaders.append(torch.utils.data.DataLoader(trainDataSet_s1, batch_size=nbBatch, shuffle=False))
-data_loaders.append(torch.utils.data.DataLoader(trainDataSet_s1_shuffle, batch_size=nbBatch, shuffle=False))
-data_loaders.append(torch.utils.data.DataLoader(trainDataSet_s2, batch_size=nbBatch, shuffle=False))
-data_loaders.append(torch.utils.data.DataLoader(trainDataSet_s2_shuffle, batch_size=nbBatch, shuffle=False))
-
-data_loaders.append(torch.utils.data.DataLoader(testDataSet_s1, batch_size=nbBatch, shuffle=False))
-data_loaders.append(torch.utils.data.DataLoader(testDataSet_s2, batch_size=nbBatch, shuffle=False))
+trainDataSet,testDataSet = lczIterDataSet(envPath,paraDict["trainData"],paraDict["testData"],datFlag,normalization,transform=transforms.Compose([ToTensor()]),shaffle=1)
 
 '''
 STEP TWO: initial a resnet model
 '''
 sys.path.append(os.path.abspath(envPath+"/src/model"))
 import resnetModel
-students = []
+model = []
 
 if modelName=='LeNet':
     for i in range(0,nbStreams):
-        students.append(resnetModel.LeNet_feature_fusion(inChannel_1=trainDataSet_s1.nbChannel(), inChannel_2=trainDataSet_s2.nbChannel(), nbClass = trainDataSet_s2.label.shape[1]).to(cudaNow))
-
-
-
-
+        model.append(resnetModel.LeNet_feature_fusion(inChannel_1=trainDataSet.nbChannel()[0], inChannel_2=trainDataSet.nbChannel()[1], nbClass = trainDataSet.label.shape[1]).to(cudaNow))
 
 
 '''
@@ -116,14 +93,14 @@ classification_loss = nn.CrossEntropyLoss()
 consistency_loss = nn.MSELoss()
 optimizers = []
 for i in range(0,nbStreams):
-    optimizers.append(optim.Adam(students[i].parameters(), lr=learnRate))
+    optimizers.append(optim.Adam(model[i].parameters(), lr=learnRate))
 
 
 '''
 STEP FOUR: Train the network
 '''
 import modelOperDataLoader
-model, tra_Loss_s1, tra_Loss_s2, tra_Arry_s1, tra_Arry_s2, val_Loss_s1, val_Arry_s1, val_Aver_s1, val_Loss_s2, val_Arry_s2, val_Aver_s2, consistentLoss = modelOperDataLoader.train_dual_fusion_student(students, data_loaders, optimizers, cudaNow, classification_loss, consistency_loss, nbEpoch)
+model, tra_loss, tra_arry, val_loss, val_arry, val_aver, tra_consis_loss = modelOperDataLoader.train_multi_fusion(model, trainDataSet, testDataSet, optimizers, cudaNow, classification_loss, consistency_loss, nbEpoch, nbBatch)
 
 '''
 STEP FIVE: Test the network
@@ -146,21 +123,16 @@ codes for saving and loading models:
 '''
 for i in range(0,nbStreams):
     model_name = 'model_stream_' +str(i+1)
-    torch.save(students[i].state_dict(), os.path.join(outcomeDir,model_name))
+    torch.save(model[i].state_dict(), os.path.join(outcomeDir,model_name))
 
 # saveing training history
 fid = h5py.File(os.path.join(outcomeDir,'training_history.h5'),'w')
-fid.create_dataset('tra_Loss_s1',data=tra_Loss_s1)
-fid.create_dataset('tra_Loss_s2',data=tra_Loss_s2)
-fid.create_dataset('tra_Arry_s1',data=tra_Arry_s1)
-fid.create_dataset('tra_Arry_s2',data=tra_Arry_s2)
-fid.create_dataset('val_Loss_s1',data=val_Loss_s1)
-fid.create_dataset('val_Arry_s1',data=val_Arry_s1)
-fid.create_dataset('val_Aver_s1',data=val_Aver_s1)
-fid.create_dataset('val_Loss_s2',data=val_Loss_s2)
-fid.create_dataset('val_Arry_s2',data=val_Arry_s2)
-fid.create_dataset('val_Aver_s2',data=val_Aver_s2)
-fid.create_dataset('consistentLoss',data=consistentLoss)
+fid.create_dataset('tra_Loss',data=tra_loss)
+fid.create_dataset('tra_Arry',data=tra_arry)
+fid.create_dataset('val_Loss',data=val_loss)
+fid.create_dataset('val_Arry',data=val_arry)
+fid.create_dataset('val_Aver',data=val_aver)
+fid.create_dataset('consistentLoss',data=tra_consis_loss)
 
 fid.close()
 
@@ -169,8 +141,12 @@ fid.close()
 '''
 STEP SEVEN: Predict with the model
 '''
+
 import modelOperDataLoader
-confusion_matrix,oa,aa,ka,pa,ua = modelOperDataLoader.prediction_dual_fusion_student(students, cudaNow, data_loaders[4:], classification_loss)
+
+target_data_loader = torch.utils.data.DataLoader(testDataSet, batch_size=nbBatch, shuffle=False)
+
+confusion_matrix,oa,aa,ka,pa,ua = modelOperDataLoader.prediction_multi_fusion(model, cudaNow, target_data_loader, classification_loss)
 
 # save accuracy
 fid = h5py.File(os.path.join(outcomeDir,'test_accuracy.h5'),'w')

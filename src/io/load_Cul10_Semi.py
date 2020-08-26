@@ -226,7 +226,10 @@ def initialOutputFolder(paraDict):
     # get time stamp
     now = datetime.now()
     timestamp = now.strftime("%Y-%m-%d_%H-%M-%S")
-    outcomeDir = paraDict["modelName"] + '_tr_'+paraDict["trainData"]+'_te_'+paraDict["testData"]+ '_outcome_' + timestamp
+    if 'nbStreams' in paraDict:
+        outcomeDir = paraDict["modelName"] +'_'+str(paraDict['nbStreams'])+'_stream_tr_'+paraDict["trainData"]+'_te_'+paraDict["testData"]+ '_outcome_' + timestamp
+    else:
+        outcomeDir = paraDict["modelName"] + '_tr_'+paraDict["trainData"]+'_te_'+paraDict["testData"]+ '_outcome_' + timestamp
     # mkdir output folder
     os.mkdir(outcomeDir)
     return outcomeDir
