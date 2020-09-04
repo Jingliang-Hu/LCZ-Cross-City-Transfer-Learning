@@ -500,7 +500,7 @@ def train_multi_ensemble(students, data_loaders, optimizers, device, classificat
         correct = np.zeros((nb_streams))
         # iterations in batches
         print("Number of batches (%d in total): " % (nb_batches))
-        for i, data in tqdm(enumerate(zip(data_loaders[0],data_loaders[1],data_loaders[2],data_loaders[3],data_loaders[4],data_loaders[5]))):
+        for i, data in tqdm(enumerate(zip(*data_loaders))):
             targetDat = data[nb_streams]['data'].to(device,dtype=torch.float)
             sourceLab = []
             stream_out_source = []
