@@ -24,9 +24,8 @@ print("parameter setting...")
 paraDict = {
         ### network parameters
         "nbBatch": 256,
-        "nbEpoch": 100,
+        "nbEpoch": 1,
         "learningRate": 1e-4,
-
         ### data loading parameters
         # "trainData": "lcz42", # training data could be the training data of LCZ42 data, or data of one of the cultural-10 city
         "trainData": "munich",
@@ -40,8 +39,8 @@ paraDict = {
 
         ### model name
         "modelName":'Sen2LCZ',#'LeNet', # model name
+        "Sen2LCZ_drop_out": 0.2,
         }
-
 cudaNow = torch.device('cuda:0')
 nbBatch = paraDict["nbBatch"]
 nbEpoch = paraDict["nbEpoch"]
@@ -79,8 +78,8 @@ import resnetModel
 # model = resnetModel.LeNet(inChannel=trainDataSet.nbChannel(), nbClass = trainDataSet.label.shape[1]).to(cudaNow)
 # predModel = resnetModel.LeNet(inChannel=trainDataSet.nbChannel(), nbClass = trainDataSet.label.shape[1]).to(cudaNow)
 
-model = resnetModel.Sen2LCZ(in_Channel=10, nb_class=17, nb_kernel=16, depth=17, bn_flag=1).to(cudaNow)
-predModel = resnetModel.Sen2LCZ(in_Channel=10, nb_class=17, nb_kernel=16, depth=17, bn_flag=1).to(cudaNow)
+model = resnetModel.Sen2LCZ(in_Channel=10, nb_class=17, nb_kernel=16, depth=17, bn_flag=1, drop_rate=paraDict["Sen2LCZ_drop_out"]).to(cudaNow)
+predModel = resnetModel.Sen2LCZ(in_Channel=10, nb_class=17, nb_kernel=16, depth=17, bn_flag=1, drop_rate=paraDict["Sen2LCZ_drop_out"]).to(cudaNow)
 
 '''
 STEP THREE: Define a loss function and optimizer

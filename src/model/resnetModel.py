@@ -303,7 +303,7 @@ class LeNet_decision_fusion(nn.Module):
         return fus
 
 class Sen2LCZ(nn.Module):
-    def __init__(self, in_Channel=10, nb_class=17, nb_kernel=16, depth=17, bn_flag=1):
+    def __init__(self, in_Channel=10, nb_class=17, nb_kernel=16, depth=17, bn_flag=1, drop_rate=0.2):
         super(Sen2LCZ, self).__init__()
         self.bn_flag = bn_flag
         self.nb_depth = depth
@@ -325,6 +325,8 @@ class Sen2LCZ(nn.Module):
 
         self.conv_4 = nn.Conv2d(8*nb_kernel, 8*nb_kernel, 3, padding=(1,1))
         self.norm_4 = nn.BatchNorm2d(8*nb_kernel)
+
+        self.dropout_layer = nn.Dropout(p=drop_rate)
 
         self.fc = nn.Linear(8*nb_kernel, nb_class)
         self.LogSoftMax_decision = nn.LogSoftmax(dim=1)
@@ -353,6 +355,7 @@ class Sen2LCZ(nn.Module):
         pool_2_1 = self.maxpool(x2)
         pool_2_2 = self.avgpool(x2)
         x3 = torch.cat((pool_2_1,pool_2_2),1)
+        x3 = self.dropout_layer(x3)
 
         # third block
         for i in range(self.nb_layer_block):
@@ -364,6 +367,7 @@ class Sen2LCZ(nn.Module):
         pool_3_1 = self.maxpool(x3)
         pool_3_2 = self.avgpool(x3)
         x4 = torch.cat((pool_3_1,pool_3_2),1)
+        x4 = self.dropout_layer(x4)
 
         # fourth block
         for i in range(self.nb_layer_block):
