@@ -302,9 +302,82 @@ class LeNet_decision_fusion(nn.Module):
         fus = self.fusionFC2(fus)
         return fus
 
+class Sen2LCZ(nn.Module):
+    def __init__(self, in_Channel=10, nb_class=17, nb_kernel=16, depth=17, bn_flag=1):
+        super(Sen2LCZ, self).__init__()
+        self.bn_flag = bn_flag
+        self.nb_depth = depth
+        self.nb_blocks = 4
+        self.nb_layer_block = int((depth-1)/self.nb_blocks)
+        self.global_average_pool = nn.AvgPool2d(4)
+
+        self.maxpool = nn.MaxPool2d(2, 2)
+        self.avgpool = nn.AvgPool2d(2, 2)
+
+        self.conv_1 = nn.Conv2d( in_Channel,   nb_kernel, 3, padding=(1,1))
+        self.norm_1 = nn.BatchNorm2d(nb_kernel)
+
+        self.conv_2 = nn.Conv2d(2*nb_kernel, 2*nb_kernel, 3, padding=(1,1))
+        self.norm_2 = nn.BatchNorm2d(2*nb_kernel)
+
+        self.conv_3 = nn.Conv2d(4*nb_kernel, 4*nb_kernel, 3, padding=(1,1))
+        self.norm_3 = nn.BatchNorm2d(4*nb_kernel)
+
+        self.conv_4 = nn.Conv2d(8*nb_kernel, 8*nb_kernel, 3, padding=(1,1))
+        self.norm_4 = nn.BatchNorm2d(8*nb_kernel)
+
+        self.fc = nn.Linear(8*nb_kernel, nb_class)
+        self.LogSoftMax_decision = nn.LogSoftmax(dim=1)
 
 
 
+    def forward(self, x):
+        # first block
+        for i in range(self.nb_layer_block):
+            if self.bn_flag:
+                x1 = F.relu(self.norm_1(self.conv_1(x)))
+            else:
+                x1 = F.relu(self.conv_1(x))         
+        # first block pooling
+        pool_1_1 = self.maxpool(x1)
+        pool_1_2 = self.avgpool(x1)
+        x2 = torch.cat((pool_1_1,pool_1_2),1)
+
+        # second block
+        for i in range(self.nb_layer_block):
+            if self.bn_flag:
+                x2 = F.relu(self.norm_2(self.conv_2(x2)))
+            else:
+                x2 = F.relu(self.conv_2(x2))
+        # second block pooling
+        pool_2_1 = self.maxpool(x2)
+        pool_2_2 = self.avgpool(x2)
+        x3 = torch.cat((pool_2_1,pool_2_2),1)
+
+        # third block
+        for i in range(self.nb_layer_block):
+            if self.bn_flag:
+                x3 = F.relu(self.norm_3(self.conv_3(x3)))
+            else:
+                x3 = F.relu(self.conv_3(x3))
+        # third block pooling
+        pool_3_1 = self.maxpool(x3)
+        pool_3_2 = self.avgpool(x3)
+        x4 = torch.cat((pool_3_1,pool_3_2),1)
+
+        # fourth block
+        for i in range(self.nb_layer_block):
+            if self.bn_flag:
+                x4 = F.relu(self.norm_4(self.conv_4(x4)))
+            else:
+                x4 = F.relu(self.conv_4(x4))
+
+        x4 = self.global_average_pool(x4)
+
+        x4 = x4.view(x4.size(0), -1)        
+        outputs = self.LogSoftMax_decision(self.fc(x4))
+
+        return outputs
 
 
 class Conv_5(nn.Module):

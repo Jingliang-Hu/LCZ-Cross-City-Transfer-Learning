@@ -28,17 +28,21 @@ paraDict = {
         "learningRate": 1e-4,
 
         ### data loading parameters
-        "trainData": "lcz42", # training data could be the training data of LCZ42 data, or data of one of the cultural-10 city
-        "testData": "cul10",  # testing data could be all the data of the cultural-10 cities, or one of them.
+        # "trainData": "lcz42", # training data could be the training data of LCZ42 data, or data of one of the cultural-10 city
+        "trainData": "munich",
+
+        # "testData": "cul10",  # testing data could be all the data of the cultural-10 cities, or one of them.
+        "testData": "moscow",
+
         "normalization":"cms", # "cms": channel-wise mean-std normalization
         # "normalization":"pms", # "pms": patch-wise mean-std normalization
         "datFlag":2, # data selection: sentinel-1, sentinel-2, or both
 
         ### model name
-        "modelName":'LeNet', # model name
+        "modelName":'Sen2LCZ',#'LeNet', # model name
         }
 
-cudaNow = torch.device('cuda:5')
+cudaNow = torch.device('cuda:0')
 nbBatch = paraDict["nbBatch"]
 nbEpoch = paraDict["nbEpoch"]
 learnRate = paraDict["learningRate"]
@@ -72,10 +76,11 @@ import resnetModel
 # model = resnetModel.resnet18(pretrained=False, inChannel=trainDataSet.nbChannel()).to(cudaNow)
 # predModel = resnetModel.resnet18(pretrained=False, inChannel=trainDataSet.nbChannel()).to(cudaNow)
 
-model = resnetModel.LeNet(inChannel=trainDataSet.nbChannel(), nbClass = trainDataSet.label.shape[1]).to(cudaNow)
-predModel = resnetModel.LeNet(inChannel=trainDataSet.nbChannel(), nbClass = trainDataSet.label.shape[1]).to(cudaNow)
+# model = resnetModel.LeNet(inChannel=trainDataSet.nbChannel(), nbClass = trainDataSet.label.shape[1]).to(cudaNow)
+# predModel = resnetModel.LeNet(inChannel=trainDataSet.nbChannel(), nbClass = trainDataSet.label.shape[1]).to(cudaNow)
 
-
+model = resnetModel.Sen2LCZ(in_Channel=10, nb_class=17, nb_kernel=16, depth=17, bn_flag=1).to(cudaNow)
+predModel = resnetModel.Sen2LCZ(in_Channel=10, nb_class=17, nb_kernel=16, depth=17, bn_flag=1).to(cudaNow)
 
 '''
 STEP THREE: Define a loss function and optimizer
