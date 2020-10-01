@@ -41,7 +41,10 @@ paraDict = {
         "datFlag":2, # data selection: sentinel-1, sentinel-2, or both
         
         ### model name
-        "modelName":'ResNet_18', # model name
+        #"modelName":'LeNet', # model name
+        "modelName":'Sen2LCZ',#'LeNet', # model name
+        "Sen2LCZ_drop_out": 0.2,
+
         "nbStreams":5,
         }
 
@@ -85,10 +88,12 @@ import resnetModel
 # student2 = resnetModel.resnet18(pretrained=False, inChannel=trainDataSet.nbChannel()).to(cudaNow)
 students = []
 for i in range(0,nbStreams):
-    if modelName == "LeNet_ensemble":
+    if modelName == "LeNet":
         students.append(resnetModel.LeNet(inChannel=trainDataSet.nbChannel(), nbClass = trainDataSet.label.shape[1]).to(cudaNow))
     elif modelName == "ResNet_18":
         students.append(resnetModel.resnet18(pretrained=False, inChannel=trainDataSet.nbChannel()).to(cudaNow))
+    elif modelName == "Sen2LCZ":
+        students.append(resnetModel.Sen2LCZ(in_Channel=10, nb_class=17, nb_kernel=16, depth=17, bn_flag=1, drop_rate=paraDict["Sen2LCZ_drop_out"]).to(cudaNow))
 
 # predModel_s1 = resnetModel.LeNet(inChannel=trainDataSet.nbChannel(), nbClass = trainDataSet.label.shape[1]).to(cudaNow)
 # predModel_s2 = resnetModel.LeNet(inChannel=trainDataSet.nbChannel(), nbClass = trainDataSet.label.shape[1]).to(cudaNow)

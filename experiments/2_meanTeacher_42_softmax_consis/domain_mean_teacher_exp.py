@@ -28,8 +28,8 @@ paraDict = {
         "nbBatch": 256,
         "nbEpoch": 728, #728
         "learningRate": 1e-4,
-        "learningRate_decay":"step",
-        "learningRate_stepSize":200,
+        "learningRate_decay":"off",#"step",
+        #"learningRate_stepSize":200,
         "maxEpochConsisLossWeight": 50,
         "confidenceModel":0,
         "confidenceThreshold":0.9,
@@ -39,15 +39,20 @@ paraDict = {
         ### data loading parameters
         
         "trainData": "lcz42", # training data could be the training data of LCZ42 data, or data of one of the cultural-10 city
+        # "trainData": "moscow",
         "testData": "cul10",  # testing data could be all the data of the cultural-10 cities, or one of them.
+        # "testData": "munich",
         "normalization":"cms", # "ms": mean-std normalization, patch-wise
         "datFlag":2, # data selection: sentinel-1, sentinel-2, or both
         
         ### model name
-        "modelName":'LeNet_mean_teacher', # model name
+        # "modelName":'LeNet_mean_teacher', # model name
+        "modelName":'Sen2LCZ',#'LeNet', # model name
+        "Sen2LCZ_drop_out": 0.2,
+
         }
 
-cudaNow = torch.device('cuda:5')
+cudaNow = torch.device('cuda:0')
 
 nbBatch = paraDict["nbBatch"]
 nbEpoch = paraDict["nbEpoch"]
@@ -93,15 +98,12 @@ sys.path.append(os.path.abspath(envPath+"/src/model"))
 import resnetModel
 # student = resnetModel.resnet18(pretrained=False, inChannel=trainDataSet.nbChannel()).to(cudaNow)
 # teacher = resnetModel.resnet18(pretrained=False, inChannel=trainDataSet.nbChannel()).to(cudaNow)
-# predModel_stu = resnetModel.resnet18(pretrained=False, inChannel=trainDataSet.nbChannel()).to(cudaNow)
-# predModel_tea = resnetModel.resnet18(pretrained=False, inChannel=trainDataSet.nbChannel()).to(cudaNow)
 
-student = resnetModel.LeNet(inChannel=trainDataSet.nbChannel(), nbClass = trainDataSet.label.shape[1]).to(cudaNow)
-teacher = resnetModel.LeNet(inChannel=trainDataSet.nbChannel(), nbClass = trainDataSet.label.shape[1]).to(cudaNow)
-predModel_stu = resnetModel.LeNet(inChannel=trainDataSet.nbChannel(), nbClass = trainDataSet.label.shape[1]).to(cudaNow)
-predModel_tea = resnetModel.LeNet(inChannel=trainDataSet.nbChannel(), nbClass = trainDataSet.label.shape[1]).to(cudaNow)
+# student = resnetModel.LeNet(inChannel=trainDataSet.nbChannel(), nbClass = trainDataSet.label.shape[1]).to(cudaNow)
+# teacher = resnetModel.LeNet(inChannel=trainDataSet.nbChannel(), nbClass = trainDataSet.label.shape[1]).to(cudaNow)
 
-
+student = resnetModel.Sen2LCZ(in_Channel=10, nb_class=17, nb_kernel=16, depth=17, bn_flag=1, drop_rate=paraDict["Sen2LCZ_drop_out"]).to(cudaNow)
+teacher = resnetModel.Sen2LCZ(in_Channel=10, nb_class=17, nb_kernel=16, depth=17, bn_flag=1, drop_rate=paraDict["Sen2LCZ_drop_out"]).to(cudaNow)
 
 
 '''
@@ -185,9 +187,7 @@ fid.close()
 '''
 STEP SEVEN: Predict with the trained teacher model
 '''
-modelPath = os.path.join(outcomeDir,'teacher_model')
-predModel_tea.load_state_dict(torch.load(modelPath,map_location=cudaNow))
-confusion_matrix,oa,aa,ka,pa,ua = modelOperDataLoader.confusionMatrix(predModel_tea,cudaNow,testDataLoader,classification_loss)
+confusion_matrix,oa,aa,ka,pa,ua = modelOperDataLoader.confusionMatrix(teacher,cudaNow,testDataLoader,classification_loss)
 
 # save accuracy
 fid = h5py.File(os.path.join(outcomeDir,'teacher_test_accuracy.h5'),'w')
@@ -207,9 +207,7 @@ cm_disp.figure_.savefig(os.path.join(outcomeDir,'teacher_confusion_matrix.png'))
 '''
 STEP SEVEN: Predict with the trained student model
 '''
-modelPath = os.path.join(outcomeDir,'student_model')
-predModel_stu.load_state_dict(torch.load(modelPath,map_location=cudaNow))
-confusion_matrix,oa,aa,ka,pa,ua = modelOperDataLoader.confusionMatrix(predModel_stu,cudaNow,testDataLoader,classification_loss)
+confusion_matrix,oa,aa,ka,pa,ua = modelOperDataLoader.confusionMatrix(student,cudaNow,testDataLoader,classification_loss)
 
 # save accuracy
 fid = h5py.File(os.path.join(outcomeDir,'student_test_accuracy.h5'),'w')
