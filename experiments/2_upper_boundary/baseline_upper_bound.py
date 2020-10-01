@@ -35,7 +35,10 @@ paraDict = {
         "datFlag":2, # data selection: sentinel-1, sentinel-2, or both
 
         ### model name
-        "modelName":'LeNet', # model name
+        # "modelName":'LeNet', # model name
+        "modelName":'Sen2LCZ',#'LeNet', # model name
+        "Sen2LCZ_drop_out": 0.2,
+
         }
 
 cudaNow = torch.device('cuda:5')
@@ -70,8 +73,10 @@ STEP TWO: initial a resnet model
 sys.path.append(os.path.abspath(envPath+"/src/model"))
 import resnetModel
 # resnet = resnetModel.resnet18(pretrained=False, inChannel=trainDataSet.nbChannel()).to(cudaNow)
-model = resnetModel.LeNet(inChannel=trainDataSet.nbChannel(), nbClass = trainDataSet.label.shape[1]).to(cudaNow)
-predModel = resnetModel.LeNet(inChannel=trainDataSet.nbChannel(), nbClass = trainDataSet.label.shape[1]).to(cudaNow)
+# model = resnetModel.LeNet(inChannel=trainDataSet.nbChannel(), nbClass = trainDataSet.label.shape[1]).to(cudaNow)
+model = resnetModel.Sen2LCZ(in_Channel=10, nb_class=17, nb_kernel=16, depth=17, bn_flag=1, drop_rate=paraDict["Sen2LCZ_drop_out"]).to(cudaNow)
+
+
 
 
 '''
@@ -126,9 +131,7 @@ STEP SEVEN: Predict with the trained model
 '''
 # outcomeDir = os.path.join('/data/Projects/TF/experiments/0_benchMark/channel_normalization_outcome','resnet18_benchMark_tr_moscow_te_munich_outcome_2019-12-17_13-36-01')
 # outcomeDir = os.path.join('/data/Projects/TF/experiments/0_benchMark/patch_normalization_outcome','')
-modelPath = os.path.join(outcomeDir,'model')
-predModel.load_state_dict(torch.load(modelPath,map_location=cudaNow))
-confusion_matrix,oa,aa,ka,pa,ua = modelOperDataLoader.confusionMatrix(predModel,cudaNow,testDataLoader,criterion)
+confusion_matrix,oa,aa,ka,pa,ua = modelOperDataLoader.confusionMatrix(model,cudaNow,testDataLoader,criterion)
 
 # save accuracy
 fid = h5py.File(os.path.join(outcomeDir,'test_accuracy.h5'),'w')
