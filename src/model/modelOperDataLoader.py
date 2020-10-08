@@ -165,7 +165,26 @@ def semiFusionConfusionMatrix(model_list,device,testDataLoad_s1,testDataLoad_s2,
     print(ua)
     return confusion_matrix,oa,aa,ka,pa,ua
 
+def prediction_4_mapping(model,data_patches):
+    model.eval()
+    pred = np.zeros((data_patches.shape[0]))
+    batch_num = 100
+    batch_total = np.ceil(data_patches.shape[0]/batch_num)
 
+    for i in tqdm(range(batch_total)):
+        if i == batch_total-1:
+            data_batch = data_patches[i*batch_num:end,:,:,:]
+            output = model(data_batch)
+            _, predTmp = torch.max(output.data, 1)
+            pred[i*batch_num:end] = predTmp
+        else:
+            data_batch = data_patches[i*batch_num:(i+1)*batch_num,:,:,:]
+            output = model(data_batch)
+            _, predTmp = torch.max(output.data, 1)
+            pred[i*batch_num:(i+1)*batch_num] = predTmp
+
+    return pred
+    
 
 def test(model,device,valDataLoader,criterion):
     '''
