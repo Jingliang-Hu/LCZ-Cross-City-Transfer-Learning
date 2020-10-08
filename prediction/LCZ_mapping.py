@@ -7,10 +7,8 @@ import resnetModel
 import modelOperDataLoader
 import torch
 
-path_2_s2_data = '/datastore/DATA/classification/SEN2/SEN2_LCZ42/LCZ52_utm_s2/LCZ42_204371_Munich/autumn/204371_autumn.tif'
-
-output_directory = './Munich'
-
+path_2_s2_data = '../data/test_cities/Munich/204371_autumn.tif'
+output_directory = '../data/test_cities/Munich'
 
 # set resolution for a LCZ grid
 lcz_resolution = 100
@@ -27,6 +25,8 @@ models_path = [ '../experiments/2_baseline_42/LeNet_tr_lcz42_te_cul10_outcome_20
 '''
 # patchsize for prediction
 patchsize = 32
+# gpu device
+cuda_dev = torch.device('cuda:0')
 
 
 # s2 feature preparation
@@ -47,8 +47,13 @@ for i in range(len(models_name)):
 
     if model == 'baseline':
         model = resnetModel.LeNet(inChannel=10, nbClass = 17)
-        model.load_state_dict(torch.load(models_path[i], map_location=torch.device('cpu')))
-        pred = modelOperDataLoader.prediction_4_mapping(model,dataPatches)
+        # model.load_state_dict(torch.load(models_path[i], map_location=torch.device('cpu')))
+        model.load_state_dict(torch.load(models_path[i], map_location=torch.device(cuda_dev)))
+        pred = modelOperDataLoader.prediction_4_mapping_gpu(model,dataPatches,cuda_dev)
+    elif model == 'dual_student':
+        model = resnetModel.LeNet(inChannel=10, nbClass = 17)
+        model.load_state_dict(torch.load(models_path[i], map_location=torch.device(cuda_dev)))
+        pred = modelOperDataLoader.prediction_4_mapping_gpu(model,dataPatches,cuda_dev)
 
 
     map_tool.saveLabelPrediction(pred,lcz_map_dir)
