@@ -167,21 +167,23 @@ def semiFusionConfusionMatrix(model_list,device,testDataLoad_s1,testDataLoad_s2,
 
 def prediction_4_mapping(model,data_patches):
     model.eval()
+    model = model.float()
+    data_patches = np.transpose(data_patches,(0,3,1,2))
     pred = np.zeros((data_patches.shape[0]))
     batch_num = 100
     batch_total = np.ceil(data_patches.shape[0]/batch_num)
 
-    for i in tqdm(range(batch_total)):
+    for i in tqdm(range(batch_total.astype(int))):
         if i == batch_total-1:
-            data_batch = data_patches[i*batch_num:end,:,:,:]
-            output = model(data_batch)
+            data_batch = torch.from_numpy(data_patches[i*batch_num:,:,:,:])
+            output = model(data_batch.float())
             _, predTmp = torch.max(output.data, 1)
-            pred[i*batch_num:end] = predTmp
+            pred[i*batch_num:] = predTmp.numpy()
         else:
-            data_batch = data_patches[i*batch_num:(i+1)*batch_num,:,:,:]
-            output = model(data_batch)
+            data_batch = torch.from_numpy(data_patches[i*batch_num:(i+1)*batch_num,:,:,:])
+            output = model(data_batch.float())
             _, predTmp = torch.max(output.data, 1)
-            pred[i*batch_num:(i+1)*batch_num] = predTmp
+            pred[i*batch_num:(i+1)*batch_num] = predTmp.numpy()
 
     return pred
     

@@ -5,7 +5,7 @@ sys.path.insert(0,'../src/model')
 import mapping_uil as map_tool
 import resnetModel
 import modelOperDataLoader
-
+import torch
 
 path_2_s2_data = '/datastore/DATA/classification/SEN2/SEN2_LCZ42/LCZ52_utm_s2/LCZ42_204371_Munich/autumn/204371_autumn.tif'
 
@@ -34,7 +34,7 @@ data_feature = map_tool.get_s2_feature(path_2_s2_data)
 
 
 for i in range(len(models_name)):
-    model = models_name(i)
+    model = models_name[i]
     lcz_map_dir = output_directory + '/' + model + '_LCZ.tif'
     # initial LCZ grid
     map_tool.initialLCZGridsRes(path_2_s2_data, lcz_map_dir, lcz_resolution)
@@ -47,11 +47,12 @@ for i in range(len(models_name)):
 
     if model == 'baseline':
         model = resnetModel.LeNet(inChannel=10, nbClass = 17)
-        model.load_state_dict(torch.load(modelPath[i]))
+        model.load_state_dict(torch.load(models_path[i], map_location=torch.device('cpu')))
         pred = modelOperDataLoader.prediction_4_mapping(model,dataPatches)
 
 
-    modelOperDataLoader.saveLabelPrediction(pred,lcz_map_dir)
+    map_tool.saveLabelPrediction(pred,lcz_map_dir)
+
 
 
 

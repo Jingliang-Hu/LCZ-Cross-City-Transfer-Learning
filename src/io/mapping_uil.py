@@ -147,7 +147,6 @@ def getPatch(data,imageCoord,patchsize):
     dataPatch = np.zeros((imageCoord.shape[0],patchsize,patchsize,data.shape[0]),dtype=float)
 
     for i in range(0,imageCoord.shape[0]):
-        #print(i)
         dataPatch[i,:,:,:] = outData[imageCoord[i,1]-halfPatchSize:imageCoord[i,1]+halfPatchSize,imageCoord[i,0]-halfPatchSize:imageCoord[i,0]+halfPatchSize,:]
 
     return dataPatch
@@ -219,7 +218,7 @@ def getCoordLCZGrid(lczPath):
     geoInfoGrid = fid.GetGeoTransform()
 
     xWorld = geoInfoGrid[0] + 0.5*geoInfoGrid[1] + col_cell * geoInfoGrid[1];
-    yWorld = geoInfoGrid[3] - 0.5*geoInfoGrid[5] + row_cell * geoInfoGrid[5];
+    yWorld = geoInfoGrid[3] + 0.5*geoInfoGrid[5] + row_cell * geoInfoGrid[5];
 
     [xWorld,yWorld] = np.meshgrid(xWorld,yWorld)
     coordCell = np.transpose(np.stack((np.ravel(xWorld),np.ravel(yWorld)),axis=0))
