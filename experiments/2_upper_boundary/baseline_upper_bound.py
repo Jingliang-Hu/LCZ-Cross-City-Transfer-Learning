@@ -30,18 +30,19 @@ paraDict = {
         ### data loading parameters
         "trainData": "cul10_west", # training data could be the training data of LCZ42 data, or data of one of the cultural-10 city
         "testData": "cul10_east",  # testing data could be all the data of the cultural-10 cities, or one of them.
-        "normalization":"cms", # "cms": channel-wise mean-std normalization
+        "normalization":"no", # "cms": channel-wise mean-std normalization
         # "normalization":"pms", # "pms": patch-wise mean-std normalization
         "datFlag":2, # data selection: sentinel-1, sentinel-2, or both
 
         ### model name
+        #"modelName":'LeNet_conv5',
+        "modelName":'ResNet',
         # "modelName":'LeNet', # model name
-        "modelName":'Sen2LCZ',#'LeNet', # model name
-        "Sen2LCZ_drop_out": 0.2,
+        # "modelName":'Sen2LCZ',#'LeNet', # model name
+        # "Sen2LCZ_drop_out": 0.2,
 
         }
-
-cudaNow = torch.device('cuda:5')
+cudaNow = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 nbBatch = paraDict["nbBatch"]
 nbEpoch = paraDict["nbEpoch"]
 learnRate = paraDict["learningRate"]
@@ -72,9 +73,17 @@ STEP TWO: initial a resnet model
 '''
 sys.path.append(os.path.abspath(envPath+"/src/model"))
 import resnetModel
-# resnet = resnetModel.resnet18(pretrained=False, inChannel=trainDataSet.nbChannel()).to(cudaNow)
-# model = resnetModel.LeNet(inChannel=trainDataSet.nbChannel(), nbClass = trainDataSet.label.shape[1]).to(cudaNow)
-model = resnetModel.Sen2LCZ(in_Channel=10, nb_class=17, nb_kernel=16, depth=17, bn_flag=1, drop_rate=paraDict["Sen2LCZ_drop_out"]).to(cudaNow)
+if modelName == 'ResNet':
+    resnet = resnetModel.resnet18(pretrained=False, inChannel=trainDataSet.nbChannel()).to(cudaNow)
+elif modelName == 'LeNet':
+    model = resnetModel.LeNet(inChannel=trainDataSet.nbChannel(), nbClass = trainDataSet.label.shape[1]).to(cudaNow)
+elif modelName == 'Sen2LCZ':
+    model = resnetModel.Sen2LCZ(in_Channel=10, nb_class=17, nb_kernel=16, depth=17, bn_flag=1, drop_rate=paraDict["Sen2LCZ_drop_out"]).to(cudaNow)
+elif modelName == 'LeNet_conv5':
+    model = resnetModel.LeNet_conv_5(inChannel=trainDataSet.nbChannel(), nbClass = trainDataSet.label.shape[1]).to(cudaNow)
+else:
+    display('model not defined')
+
 
 
 

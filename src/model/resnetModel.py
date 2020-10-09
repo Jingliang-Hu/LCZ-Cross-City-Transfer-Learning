@@ -219,6 +219,26 @@ def resnet152(pretrained=False, inChannel=3, **kwargs):
         model.load_state_dict(model_zoo.load_url(model_urls['resnet152']))
     return model
 
+class LeNet_conv_5(nn.Module):
+    def __init__(self, inChannel=4, nbClass = 8):
+        super(LeNet_conv_5, self).__init__()
+        self.conv1 = nn.Conv2d(inChannel, 64, 5)
+        self.pool = nn.MaxPool2d(2, 2)
+        self.conv2 = nn.Conv2d(64, 128, 5)
+        self.fc1 = nn.Linear(128 * 5 * 5, 128)
+        self.fc2 = nn.Linear(128, 64)
+        self.fc3 = nn.Linear(64, nbClass)
+
+    def forward(self, x):
+        x = self.pool(F.relu(self.conv1(x)))
+        x = self.pool(F.relu(self.conv2(x)))
+        x = x.view(x.size(0), -1)
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        x = self.fc3(x)
+        return x
+
+
 
 class LeNet(nn.Module):
     def __init__(self, inChannel=4, nbClass = 8):

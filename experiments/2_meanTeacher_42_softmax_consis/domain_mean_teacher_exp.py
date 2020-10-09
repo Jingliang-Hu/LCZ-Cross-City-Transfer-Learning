@@ -47,6 +47,7 @@ paraDict = {
         
         ### model name
         "modelName":'ResNet',
+        # "modelName":'LeNet_conv5',
         # "modelName":'LeNet', # model name
         # "modelName":'Sen2LCZ',#'LeNet', # model name
         # "Sen2LCZ_drop_out": 0.2,
@@ -97,14 +98,22 @@ STEP TWO: initial a resnet model
 '''
 sys.path.append(os.path.abspath(envPath+"/src/model"))
 import resnetModel
-student = resnetModel.resnet18(pretrained=False, inChannel=trainDataSet.nbChannel()).to(cudaNow)
-teacher = resnetModel.resnet18(pretrained=False, inChannel=trainDataSet.nbChannel()).to(cudaNow)
+if modelName == 'ResNet':
+    student = resnetModel.resnet18(pretrained=False, inChannel=trainDataSet.nbChannel()).to(cudaNow)
+    teacher = resnetModel.resnet18(pretrained=False, inChannel=trainDataSet.nbChannel()).to(cudaNow)
+elif  modelName == 'LeNet':
+    student = resnetModel.LeNet(inChannel=trainDataSet.nbChannel(), nbClass = trainDataSet.label.shape[1]).to(cudaNow)
+    teacher = resnetModel.LeNet(inChannel=trainDataSet.nbChannel(), nbClass = trainDataSet.label.shape[1]).to(cudaNow)
+elif modelName == 'Sen2LCZ':
+    student = resnetModel.Sen2LCZ(in_Channel=10, nb_class=17, nb_kernel=16, depth=17, bn_flag=1, drop_rate=paraDict["Sen2LCZ_drop_out"]).to(cudaNow)
+    teacher = resnetModel.Sen2LCZ(in_Channel=10, nb_class=17, nb_kernel=16, depth=17, bn_flag=1, drop_rate=paraDict["Sen2LCZ_drop_out"]).to(cudaNow)
+elif modelName == 'LeNet_conv5':
+    student = resnetModel.LeNet_conv_5(inChannel=trainDataSet.nbChannel(), nbClass = trainDataSet.label.shape[1]).to(cudaNow)
+    teacher = resnetModel.LeNet_conv_5(inChannel=trainDataSet.nbChannel(), nbClass = trainDataSet.label.shape[1]).to(cudaNow)
+else:
+    display('model not defined')
 
-# student = resnetModel.LeNet(inChannel=trainDataSet.nbChannel(), nbClass = trainDataSet.label.shape[1]).to(cudaNow)
-# teacher = resnetModel.LeNet(inChannel=trainDataSet.nbChannel(), nbClass = trainDataSet.label.shape[1]).to(cudaNow)
 
-# student = resnetModel.Sen2LCZ(in_Channel=10, nb_class=17, nb_kernel=16, depth=17, bn_flag=1, drop_rate=paraDict["Sen2LCZ_drop_out"]).to(cudaNow)
-# teacher = resnetModel.Sen2LCZ(in_Channel=10, nb_class=17, nb_kernel=16, depth=17, bn_flag=1, drop_rate=paraDict["Sen2LCZ_drop_out"]).to(cudaNow)
 
 
 '''
