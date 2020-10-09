@@ -63,6 +63,53 @@ def saveProbabilityPrediction(probPred,tiffPath):
 
     return tiffPath
 
+def create_LCZ_map_in_rgb(lcz_lab_tiff, lcz_rgb_tiff):
+    f = gdal.Open(lcz_lab_tiff)
+    row = f.RasterYSize
+    col = f.RasterXSize
+    proj = f.GetProjection()
+    geoInfo = f.GetGeoTransform()
+    lab = f.ReadAsArray()
+    del(f)
+
+    color_map = [[1, 165,   0,  33],
+                 [2, 204,   0,   0],
+                 [3, 255,   0,   0],
+                 [4, 153,  51,   0],
+                 [5, 204, 102,   0],
+                 [6, 255, 153,   0],
+                 [7, 255, 255,   0],
+                 [8, 192, 192, 192],
+                 [9, 255, 204, 153],
+                 [10, 77,  77,  77],
+                 [11,  0, 102,   0],
+                 [12, 21, 255,  21],
+                 [13,102, 153,   0],
+                 [14,204, 255, 102],
+                 [15,  0,   0, 102],
+                 [16,255, 255, 204],
+                 [17, 51, 102, 255]]
+
+    rgb = np.zeros((row,col,3),dtype=np.int)
+
+    for i in range(17):
+        idx = np.where(lab==color_map[i][0])
+        for j in range(3):
+            rgb[idx[0],idx[1],j] = color_map[i][j+1]
+            
+    LCZDriver = gdal.GetDriverByName('GTiff')
+    LCZFile = LCZDriver.Create(lcz_rgb_tiff, col, row, 3, gdal.GDT_UInt16)
+    LCZFile.SetProjection(proj)
+    LCZFile.SetGeoTransform(geoInfo)
+    # save rgb 
+    for idxBnd in range(3):
+        outBand = LCZFile.GetRasterBand(idxBnd+1)
+        outBand.WriteArray(rgb[:,:,idxBnd].astype(np.int16))
+        outBand.FlushCache()
+    
+    del(outBand)
+    return 0
+
 
 
 
