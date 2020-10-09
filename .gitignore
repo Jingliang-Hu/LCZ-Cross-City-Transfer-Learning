@@ -22,9 +22,13 @@ trained_models
 *.png
 *.eps
 
+# ignore script of running experiments
+**/*repeatExpers.py
+
+
 # ignore experiment output
 **/*outcome*
 **/*backup*
 
 # ignore local environment setting
-*.envPath
+.envPath

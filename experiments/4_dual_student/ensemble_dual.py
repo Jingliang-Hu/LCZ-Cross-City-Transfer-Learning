@@ -35,13 +35,14 @@ paraDict = {
         "testData": "cul10",  # testing data could be all the data of the cultural-10 cities, or one of them.
         # "testData": "munich",
         
-        "normalization":"cms", # "ms": mean-std normalization, patch-wise
+        "normalization":"no", # "ms": mean-std normalization, patch-wise
         "datFlag":2, # data selection: sentinel-1, sentinel-2, or both
         
         ### model name
-        # "modelName":'LeNet_ensemble', # model name
-        "modelName":'Sen2LCZ',#'LeNet', # model name
-        "Sen2LCZ_drop_out": 0.2,
+        "modelName":'ResNet',
+        #"modelName":'LeNet', # model name
+        #"modelName":'Sen2LCZ',#'LeNet', # model name
+        #"Sen2LCZ_drop_out": 0.2,
 
         }
 
@@ -76,14 +77,14 @@ STEP TWO: initial a resnet model
 '''
 sys.path.append(os.path.abspath(envPath+"/src/model"))
 import resnetModel
-# student1 = resnetModel.resnet18(pretrained=False, inChannel=trainDataSet.nbChannel()).to(cudaNow)
-# student2 = resnetModel.resnet18(pretrained=False, inChannel=trainDataSet.nbChannel()).to(cudaNow)
+student1 = resnetModel.resnet18(pretrained=False, inChannel=trainDataSet.nbChannel()).to(cudaNow)
+student2 = resnetModel.resnet18(pretrained=False, inChannel=trainDataSet.nbChannel()).to(cudaNow)
 
 # student1 = resnetModel.LeNet(inChannel=trainDataSet.nbChannel(), nbClass = trainDataSet.label.shape[1]).to(cudaNow)
 # student2 = resnetModel.LeNet(inChannel=trainDataSet.nbChannel(), nbClass = trainDataSet.label.shape[1]).to(cudaNow)
 
-student1 = resnetModel.Sen2LCZ(in_Channel=10, nb_class=17, nb_kernel=16, depth=17, bn_flag=1, drop_rate=paraDict["Sen2LCZ_drop_out"]).to(cudaNow)
-student2 = resnetModel.Sen2LCZ(in_Channel=10, nb_class=17, nb_kernel=16, depth=17, bn_flag=1, drop_rate=paraDict["Sen2LCZ_drop_out"]).to(cudaNow)
+# student1 = resnetModel.Sen2LCZ(in_Channel=10, nb_class=17, nb_kernel=16, depth=17, bn_flag=1, drop_rate=paraDict["Sen2LCZ_drop_out"]).to(cudaNow)
+# student2 = resnetModel.Sen2LCZ(in_Channel=10, nb_class=17, nb_kernel=16, depth=17, bn_flag=1, drop_rate=paraDict["Sen2LCZ_drop_out"]).to(cudaNow)
 
 
 

@@ -18,7 +18,7 @@ lcz_resolution = 100
 models_name = ['baseline']#,'self_ensemble','dual_student','ensemble']
 
 # mapping model saving paths
-baseline_model = '../experiments/2_baseline_42/LeNet_tr_lcz42_te_cul10_outcome_2020-04-28_11-08-20/model'
+baseline_model = '../experiments/2_baseline_42/LeNet_tr_lcz42_te_cul10_outcome_2020-10-09_07-01-21/model'
 self_ensemble_model = ''
 dual_student_model = ''
 my_model = ''
@@ -32,10 +32,9 @@ cuda_dev = torch.device('cuda:0')
 
 # s2 feature preparation
 data_feature = map_tool.get_s2_feature(path_2_s2_data)
-print(data_feature.shape)
-
-for i in range(data_feature.shape[0]):
-    data_feature[i,:,:] = (data_feature[i,:,:] - np.mean(data_feature[i,:,:]))/np.std(data_feature[i,:,:])
+print(data_feature.dtype)
+data_feature = data_feature.astype(np.float)/1e4
+print(data_feature.mean())
 
 for i in range(len(models_name)):
     model = models_name[i]
