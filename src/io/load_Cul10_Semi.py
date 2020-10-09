@@ -258,9 +258,10 @@ def patch_mean_Std_Normalization(x):
     return x
 
 def channel_mean_Std_Normalization(x):
-    print("mean standard deviation normalization")
-    x = x - x.mean(axis=(0,2,3),keepdims=True)
-    x = x/x.std(axis=(0,2,3),keepdims=True)
+    print("mean standard deviation normalization; mean values are:")
+    print(x.mean(axis=(0,1,2)))
+    x = x - x.mean(axis=(0,1,2),keepdims=True)
+    x = x/x.std(axis=(0,1,2),keepdims=True)
     return x
 
 
