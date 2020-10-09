@@ -1,5 +1,6 @@
 # ignore data files
 *.h5
+data/test_cities/
 
 # ignore zip files
 *.zip
@@ -23,8 +24,9 @@ trained_models
 *.eps
 
 # ignore script of running experiments
-**/*repeatExpers.py
-
+**/repeatExpers.py
+**/load_accuracy.py
+**/plot_train_history.py
 
 # ignore experiment output
 **/*outcome*
