@@ -265,26 +265,28 @@ class LeNet_feature_fusion(nn.Module):
         self.conv1_x2 = nn.Conv2d(inChannel_2, 64, 5)
 
         self.pool = nn.MaxPool2d(2, 2)
-        self.conv2 = nn.Conv2d(64, 256, 3)
-        self.conv3 = nn.Conv2d(256, 256, 3)
-        self.fc1 = nn.Linear(256 * 5 * 5, 128)
-        self.fc2 = nn.Linear(128, nbClass)
-        self.fusionFC = nn.Linear(256,128)
+        self.conv2 = nn.Conv2d(64, 128, 5)
+
+        self.conv_fus = nn.Conv2d(256, 512, 5)
+
+        self.fc1 = nn.Linear(512, 128)
+        self.fc2 = nn.Linear(128, 64)
+        self.fc3 = nn.Linear(64, nbClass)
 
     def forward(self, x1, x2):
         x1 = self.pool(F.relu(self.conv1_x1(x1)))
-        x1 = self.pool(F.relu(self.conv3(self.conv2(x1))))
-        x1 = x1.view(x1.size(0), -1)
-        x1 = F.relu(self.fc1(x1))
+        x1 = self.pool(F.relu(self.conv2(x1)))
 
         x2 = self.pool(F.relu(self.conv1_x2(x2)))
-        x2 = self.pool(F.relu(self.conv3(self.conv2(x2))))
-        x2 = x2.view(x2.size(0), -1)
-        x2 = F.relu(self.fc1(x2))
+        x2 = self.pool(F.relu(self.conv2(x2)))
 
         fus = torch.cat([x1,x2],dim=1)
-        fus = F.relu(self.fusionFC(fus))
-        fus = self.fc2(fus)
+        fus = F.relu(self.conv_fus(fus))
+        fus = fus.view(fus.size(0),-1)
+
+        fus = F.relu(self.fc1(fus))
+        fus = F.relu(self.fc2(fus))
+        fus = self.fc3(fus)
         return fus
 
 class LeNet_decision_fusion(nn.Module):
@@ -294,9 +296,9 @@ class LeNet_decision_fusion(nn.Module):
         self.conv1_x2 = nn.Conv2d(inChannel_2, 64, 5)
 
         self.pool = nn.MaxPool2d(2, 2)
-        self.conv2 = nn.Conv2d(64, 256, 3)
-        self.conv3 = nn.Conv2d(256, 256, 3)
-        self.fc1 = nn.Linear(256 * 5 * 5, 128)
+        self.conv2 = nn.Conv2d(64, 128, 5)
+
+        self.fc1 = nn.Linear(128 * 5 * 5, 128)
         self.fc2 = nn.Linear(128, nbClass)
         self.LogSoftMax_decistion = nn.LogSoftmax(dim=1)
 
@@ -306,13 +308,13 @@ class LeNet_decision_fusion(nn.Module):
 
     def forward(self, x1, x2):
         x1 = self.pool(F.relu(self.conv1_x1(x1)))
-        x1 = self.pool(F.relu(self.conv3(self.conv2(x1))))
+        x1 = self.pool(F.relu(self.conv2(x1)))
         x1 = x1.view(x1.size(0), -1)
         x1 = F.relu(self.fc1(x1))
         x1 = self.LogSoftMax_decistion(self.fc2(x1))
 
         x2 = self.pool(F.relu(self.conv1_x2(x2)))
-        x2 = self.pool(F.relu(self.conv3(self.conv2(x2))))
+        x2 = self.pool(F.relu(self.conv2(x2)))
         x2 = x2.view(x2.size(0), -1)
         x2 = F.relu(self.fc1(x2))
         x2 = self.LogSoftMax_decistion(self.fc2(x2))
