@@ -1582,7 +1582,7 @@ def data_augment(dat_samples):
     idx = torch.randperm(dat_samples.shape[0])
     dat_samples[idx[:int(idx.shape[0]/2)],:,:,:] = torch.flip(dat_samples[idx[:int(idx.shape[0]/2)],:,:,:],[3])
     # add normal noise
-    noise = torch.from_numpy(np.random.normal(loc=0, scale=0.001, size=np.shape(dat_samples)))
+    noise = torch.from_numpy(np.random.normal(loc=0, scale=0.001, size=np.shape(dat_samples))).float()
     idx = torch.randperm(dat_samples.shape[0])
     dat_samples[idx[:int(idx.shape[0]/2)],:,:,:] = dat_samples[idx[:int(idx.shape[0]/2)],:,:,:] + noise[idx[:int(idx.shape[0]/2)],:,:,:]
 
@@ -1664,8 +1664,8 @@ def train_unlabel_ensemble_aug(student1, student2, device, s1_data_load_source, 
             sourceLab2 = torch.max(sourceLab2,1)[1]
             sourceDat2 = data_augment(data[1]['data']).to(device,dtype=torch.float)
 
-            targetDat1 = data_augment(data[2]['data']).to(device,dtype=torch.float)
-            targetDat2 = data_augment(data[2]['data']).to(device,dtype=torch.float)
+            targetDat1 = data_augment(data[2]['data'].float()).to(device,dtype=torch.float)
+            targetDat2 = data_augment(data[2]['data'].float()).to(device,dtype=torch.float)
 
             # forward
             student1_out_source = student1(sourceDat1)
