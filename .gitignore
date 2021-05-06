@@ -27,7 +27,8 @@ trained_models
 **/repeatExpers.py
 **/load_accuracy.py
 **/plot_train_history.py
-
+**/mean_confusion_matrix.py
+**/*.mat
 # ignore experiment output
 **/*outcome*
 **/*backup*
