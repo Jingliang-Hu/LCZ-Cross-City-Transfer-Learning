@@ -98,13 +98,13 @@ def create_LCZ_map_in_rgb(lcz_lab_tiff, lcz_rgb_tiff):
             rgb[idx[0],idx[1],j] = color_map[i][j+1]
             
     LCZDriver = gdal.GetDriverByName('GTiff')
-    LCZFile = LCZDriver.Create(lcz_rgb_tiff, col, row, 3, gdal.GDT_UInt16)
+    LCZFile = LCZDriver.Create(lcz_rgb_tiff, col, row, 3, gdal.GDT_Byte)
     LCZFile.SetProjection(proj)
     LCZFile.SetGeoTransform(geoInfo)
     # save rgb 
     for idxBnd in range(3):
         outBand = LCZFile.GetRasterBand(idxBnd+1)
-        outBand.WriteArray(rgb[:,:,idxBnd].astype(np.int16))
+        outBand.WriteArray(rgb[:,:,idxBnd].astype(np.uint8))
         outBand.FlushCache()
     
     del(outBand)
@@ -177,12 +177,12 @@ def get_s2_feature(s2_tiff_file):
     f = gdal.Open(s2_tiff_file)
     data = f.ReadAsArray()
     del f
-    data = data[[1,2,3,4,5,6,7,8,11,12],:,:]
+    data = data[[1,2,3,4,5,6,7,8,11,12],:,:]/1e4
     return data
 
 
 def getPatch(data,imageCoord,patchsize):
-# this function gets data patch with give image coordinate and patch size
+    # this function gets data patch with give image coordinate and patch size
     halfPatchSize = np.int(np.floor(patchsize/2))
 
     outData = np.lib.pad(data,((0,0),(halfPatchSize,halfPatchSize),(halfPatchSize,halfPatchSize)),'symmetric')
@@ -194,7 +194,7 @@ def getPatch(data,imageCoord,patchsize):
     dataPatch = np.zeros((imageCoord.shape[0],patchsize,patchsize,data.shape[0]),dtype=float)
 
     for i in range(0,imageCoord.shape[0]):
-        dataPatch[i,:,:,:] = outData[imageCoord[i,1]-halfPatchSize:imageCoord[i,1]+halfPatchSize,imageCoord[i,0]-halfPatchSize:imageCoord[i,0]+halfPatchSize,:]
+        dataPatch[i,:,:,:] = outData[imageCoord[i,0]-halfPatchSize:imageCoord[i,0]+halfPatchSize,imageCoord[i,1]-halfPatchSize:imageCoord[i,1]+halfPatchSize,:]
 
     return dataPatch
 
@@ -209,8 +209,6 @@ def getImageCoordByXYCoord(coord,path2Data):
 # Output:
 #         - imageCoord      -- image coordinate of the input real world coordiate
 #
-
-
     try:
         fid = gdal.Open(path2Data)
     except RuntimeError as e:
@@ -226,8 +224,8 @@ def getImageCoordByXYCoord(coord,path2Data):
 
     imageCoord = np.zeros(coord.shape)
 
-    imageCoord[:,0] = np.round((coord[:,0] - geoInfoData[0])/geoInfoData[1])
-    imageCoord[:,1] = np.round((geoInfoData[3] - coord[:,1])/np.abs(geoInfoData[5]))
+    imageCoord[:,1] = np.ceil((coord[:,0] - geoInfoData[0])/geoInfoData[1])
+    imageCoord[:,0] = np.ceil((geoInfoData[3] - coord[:,1])/np.abs(geoInfoData[5]))
 
     return imageCoord.astype(int)
 
@@ -264,8 +262,8 @@ def getCoordLCZGrid(lczPath):
 
     geoInfoGrid = fid.GetGeoTransform()
 
-    xWorld = geoInfoGrid[0] + 0.5*geoInfoGrid[1] + col_cell * geoInfoGrid[1];
-    yWorld = geoInfoGrid[3] + 0.5*geoInfoGrid[5] + row_cell * geoInfoGrid[5];
+    xWorld = geoInfoGrid[0] + col_cell * geoInfoGrid[1] + 0.5 * geoInfoGrid[1];
+    yWorld = geoInfoGrid[3] + row_cell * geoInfoGrid[5] + 0.5 * geoInfoGrid[5];
 
     [xWorld,yWorld] = np.meshgrid(xWorld,yWorld)
     coordCell = np.transpose(np.stack((np.ravel(xWorld),np.ravel(yWorld)),axis=0))
@@ -294,8 +292,8 @@ def initialLCZGridsRes(dat_file, lcz_file, res):
     LCZCoordSys = dataCoordSys.copy()
     LCZCoordSys[1] = res
     LCZCoordSys[5] = -1*res
-    LCZCol = np.arange(dataCoordSys[0],dataCoordSys[0]+dataCol*dataCoordSys[1],LCZCoordSys[1]).shape[0]
-    LCZRow = np.arange(dataCoordSys[3],dataCoordSys[3]+dataRow*dataCoordSys[5],LCZCoordSys[5]).shape[0]
+    LCZCol = np.arange(dataCoordSys[0],dataCoordSys[0]+(dataCol-1)*dataCoordSys[1],LCZCoordSys[1]).shape[0]
+    LCZRow = np.arange(dataCoordSys[3],dataCoordSys[3]+(dataRow-1)*dataCoordSys[5],LCZCoordSys[5]).shape[0]
     # set the directory of initial grid
     savePath = '/'.join(lcz_file.split('/')[:-1])
     if not os.path.exists(savePath):

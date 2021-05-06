@@ -8,7 +8,7 @@ import modelOperDataLoader
 import torch
 import numpy as np
 
-path_2_s2_data = '../data/test_cities/Munich/204371_autumn.tif'
+path_2_s2_data = 'test_cities/Munich/204371_autumn.tif'
 
 city = path_2_s2_data.split('/')[-2]
 output_directory = '/'.join(path_2_s2_data.split('/')[:-1])
@@ -18,10 +18,10 @@ lcz_resolution = 100
 models_name = ['baseline']#,'self_ensemble','dual_student','ensemble']
 
 # mapping model saving paths
-baseline_model = '../experiments/2_baseline_42/LeNet_tr_lcz42_te_cul10_outcome_2020-10-09_07-01-21/model'
-self_ensemble_model = ''
-dual_student_model = ''
-my_model = ''
+baseline_model = 'basemodel/LeNet_conv5_tr_lcz42_te_cul10_outcome_2020-10-16_01-45-04/model'
+self_ensemble_model = 'self_ensemble/LeNet_conv5_tr_lcz42_te_cul10_outcome_2020-10-16_17-32-45/teacher_model'
+dual_student_model = 'dual_student/LeNet_conv5_tr_lcz42_te_cul10_outcome_2020-10-13_08-27-35/student2_test_accuracy.h5'
+my_model = 'multi_ensemble/LeNet_conv5_5_stream_tr_lcz42_te_cul10_outcome_2020-10-13_13-26-29'
 
 
 # patchsize for prediction
@@ -63,14 +63,10 @@ for i in range(len(models_name)):
         model = resnetModel.LeNet(inChannel=10, nbClass = 17)
         model.load_state_dict(torch.load(dual_student_model, map_location=torch.device(cuda_dev)))
         pred = modelOperDataLoader.prediction_4_mapping_gpu(model,dataPatches,cuda_dev)
-
     elif model == 'ensemble':
         model = resnetModel.LeNet(inChannel=10, nbClass = 17)
         model.load_state_dict(torch.load(my_model, map_location=torch.device(cuda_dev)))
         pred = modelOperDataLoader.prediction_4_mapping_gpu(model,dataPatches,cuda_dev)
-
-
-
 
     map_tool.saveLabelPrediction(pred,lcz_map_dir)
     map_tool.create_LCZ_map_in_rgb(lcz_map_dir, lcz_rgb_dir)
