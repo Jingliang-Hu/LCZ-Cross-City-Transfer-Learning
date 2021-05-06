@@ -1574,7 +1574,168 @@ def train_semi_fusion(students, data_loaders, optimizers, device, classification
     return students, cla_loss_train, cla_acc_train, cla_loss_test, cla_acc_test, con_loss_train, cla_averacc_test
 
 
+def data_augment(dat_samples):
+    # vertical random flip
+    idx = torch.randperm(dat_samples.shape[0])
+    dat_samples[idx[:int(idx.shape[0]/2)],:,:,:] = torch.flip(dat_samples[idx[:int(idx.shape[0]/2)],:,:,:],[2])
+    # horizontal random flip
+    idx = torch.randperm(dat_samples.shape[0])
+    dat_samples[idx[:int(idx.shape[0]/2)],:,:,:] = torch.flip(dat_samples[idx[:int(idx.shape[0]/2)],:,:,:],[3])
+    # add normal noise
+    noise = torch.from_numpy(np.random.normal(loc=0, scale=0.001, size=np.shape(dat_samples))).float()
+    idx = torch.randperm(dat_samples.shape[0])
+    dat_samples[idx[:int(idx.shape[0]/2)],:,:,:] = dat_samples[idx[:int(idx.shape[0]/2)],:,:,:] + noise[idx[:int(idx.shape[0]/2)],:,:,:]
 
+    return dat_samples
+
+
+
+def train_unlabel_ensemble_aug(student1, student2, device, s1_data_load_source, s2_data_load_source, data_load_target, classification_loss, consistency_loss, optimizer1, optimizer2, numEpoch):
+    nb_train_samples = len(s1_data_load_source.dataset)
+    nb_test_samples = len(data_load_target.dataset)
+    if nb_train_samples<nb_test_samples:
+        nb_samples = nb_train_samples
+    else:
+        nb_samples = nb_test_samples
+
+    nb_batches = len(s1_data_load_source)
+    print('The number of samples in source domain: % d' % (nb_train_samples))
+    print('The number of samples in target domain: % d' % (nb_test_samples))
+    #
+    student1.train()
+    student1.train()
+    '''
+    initialize outputs
+    '''
+    # learning rate
+    learning_rate_values = np.zeros((numEpoch))
+    # training student 1 classification loss
+    cla_loss_train_student1 = np.zeros((numEpoch))
+    # training student 2 classification loss
+    cla_loss_train_student2 = np.zeros((numEpoch))
+    # training consistent loss
+    con_loss_train_student1 = np.zeros((numEpoch))
+    con_loss_train_student2 = np.zeros((numEpoch))
+    # training student 1 classification accuracy
+    cla_acc_train_student1 = np.zeros((numEpoch))
+    # training student 2 classification accuracy
+    cla_acc_train_student2 = np.zeros((numEpoch))
+    ###  testing
+    # testing student 1 classification loss
+    cla_loss_test_student1 = np.zeros((numEpoch))
+    # testing teacher classification loss
+    cla_loss_test_student2 = np.zeros((numEpoch))
+    # testing consisitent loss
+    # consistentLossTest = np.zeros((numEpoch))
+    # testing student 1 classification accuracy
+    cla_acc_test_student1 = np.zeros((numEpoch))
+    # testing student 2 classification accuracy
+    cla_acc_test_student2 = np.zeros((numEpoch))
+    # testing student 1 classification average accuracy
+    cla_averacc_test_student1 = np.zeros((numEpoch))
+    # testing student 2 classification average accuracy
+    cla_averacc_test_student2 = np.zeros((numEpoch))
+
+    '''
+    start training
+    '''
+    print(" ----------------------------------------- ")
+    # training
+    for epoch in range(numEpoch):
+        print('+................................................+')
+        print('Epoch %d:' % (epoch+1))
+
+        running_loss_stu1_class = 0.0
+        running_loss_stu2_class = 0.0
+        running_loss_stu1_consis = 0.0
+        running_loss_stu2_consis = 0.0
+
+        correct_s1 = 0.0
+        correct_s2 = 0.0
+
+        # iterations in batches
+        print("Number of batches (%d in total): " % (nb_batches))
+        for i, data in tqdm(enumerate(zip(s1_data_load_source, s2_data_load_source, data_load_target))):
+            sourceLab1 = data[0]['label'].to(device,dtype=torch.float)
+            sourceLab1 = torch.max(sourceLab1,1)[1]
+            sourceDat1 = data_augment(data[0]['data']).to(device,dtype=torch.float)
+
+            sourceLab2 = data[1]['label'].to(device,dtype=torch.float)
+            sourceLab2 = torch.max(sourceLab2,1)[1]
+            sourceDat2 = data_augment(data[1]['data']).to(device,dtype=torch.float)
+
+            targetDat1 = data_augment(data[2]['data'].float()).to(device,dtype=torch.float)
+            targetDat2 = data_augment(data[2]['data'].float()).to(device,dtype=torch.float)
+
+            # forward
+            student1_out_source = student1(sourceDat1)
+            # student1_out_source_prob = F.softmax(student1_out_source, dim=1)
+            student1_out_target = student1(targetDat1)
+            student1_out_target_prob = F.softmax(student1_out_target, dim=1)
+
+            student2_out_source = student2(sourceDat2)
+            # student2_out_source_prob = F.softmax(student2_out_source, dim=1)
+            student2_out_target = student2(targetDat2)
+            student2_out_target_prob = F.softmax(student2_out_target, dim=1)
+
+            # classification loss
+            stu1_class_loss = classification_loss(student1_out_source,sourceLab1)
+            stu2_class_loss = classification_loss(student2_out_source,sourceLab2)
+            # consistent loss
+            target_aver_prob = (student2_out_target_prob+student1_out_target_prob)/2
+            stu1_consis_loss = consistency_loss(student1_out_target_prob,target_aver_prob)
+            stu2_consis_loss = consistency_loss(student2_out_target_prob,target_aver_prob)
+            # total loss
+            stu1_loss = stu1_class_loss+stu1_consis_loss
+            stu2_loss = stu2_class_loss+stu2_consis_loss
+            # zero the parameter gradients for each minibatch
+            optimizer1.zero_grad()
+            # backward
+            stu1_loss.backward(retain_graph=True)
+            # update weights in student
+            optimizer1.step()
+
+            # zero the parameter gradients for each minibatch
+            optimizer2.zero_grad()
+            # backward
+            stu2_loss.backward()
+            # update weights in student
+            optimizer2.step()
+            # training loss and accuracy
+            running_loss_stu1_class += stu1_class_loss.item()*sourceDat1.size(0)
+            running_loss_stu2_class += stu2_class_loss.item()*sourceDat2.size(0)
+
+            running_loss_stu1_consis += stu1_consis_loss.item()*sourceDat1.size(0)
+            running_loss_stu2_consis += stu1_consis_loss.item()*sourceDat2.size(0)
+
+            _, predicted_s1 = torch.max(student1_out_source.data, 1)
+            _, predicted_s2 = torch.max(student2_out_source.data, 1)
+
+            correct_s1 += predicted_s1.eq(sourceLab1).sum().item()
+            correct_s2 += predicted_s2.eq(sourceLab2).sum().item()
+
+        # training loss
+        cla_loss_train_student1[epoch] = running_loss_stu1_class/nb_samples
+        cla_loss_train_student2[epoch] = running_loss_stu2_class/nb_samples
+
+        con_loss_train_student1[epoch] = running_loss_stu1_consis/nb_samples
+        con_loss_train_student2[epoch] = running_loss_stu2_consis/nb_samples
+
+        # training accuracy
+        cla_acc_train_student1[epoch] = correct_s1/nb_samples*100
+        cla_acc_train_student2[epoch] = correct_s2/nb_samples*100
+
+        # validation loss and accuracy
+        _, cla_loss_test_student1[epoch], cla_acc_test_student1[epoch],cla_averacc_test_student1[epoch] = test(student1,device,data_load_target,classification_loss)
+        _, cla_loss_test_student2[epoch], cla_acc_test_student2[epoch],cla_averacc_test_student2[epoch] = test(student2,device,data_load_target,classification_loss)
+
+        # print
+        print('Student1: train class loss: %.4f; train consis loss: %.4f; train acc: %.4f; test acc: %.4f; test averacc: %.4f' % (cla_loss_train_student1[epoch], con_loss_train_student1[epoch], cla_acc_train_student1[epoch], cla_acc_test_student1[epoch],cla_averacc_test_student1[epoch]))
+        print('Student2: train class loss: %.4f; train consis loss: %.4f; train acc: %.4f; test acc: %.4f; test averacc: %.4f' % (cla_loss_train_student2[epoch], con_loss_train_student2[epoch], cla_acc_train_student2[epoch], cla_acc_test_student2[epoch],cla_averacc_test_student2[epoch]))
+
+
+    print(' --- training done --- ')
+    return student1, student2, cla_loss_train_student1, cla_acc_train_student1, cla_loss_test_student1, cla_acc_test_student1, cla_loss_train_student2, cla_acc_train_student2, cla_loss_test_student2, cla_acc_test_student2, con_loss_train_student1, con_loss_train_student2, cla_averacc_test_student1, cla_averacc_test_student2
 
 
 
