@@ -674,7 +674,7 @@ def train_multi_fusion(model, source_data, target_data, optimizers, device, clas
     target_data_loader = torch.utils.data.DataLoader(target_data, batch_size=batch_number, shuffle=True)
 
     # training
-    for epoch in tqdm(range(numEpoch)):
+    for epoch in range(numEpoch):
         print(" ----------------------------------------- ")
         print('Epoch %d:' % (epoch+1))
 
@@ -695,7 +695,7 @@ def train_multi_fusion(model, source_data, target_data, optimizers, device, clas
         nb_batches = np.ceil(nb_samples/batch_number)
         nb_samples_used = (batch_number*nb_batches)
         print("Number of batches (%d in total): " % (nb_batches))
-        for idx in range(nb_batches.astype(np.int)):
+        for idx in tqdm(range(nb_batches.astype(np.int))):
             target_random_idx = random.sample(range(0,nb_test_samples),batch_number)
             target_dat_1 = torch.from_numpy(target_data.dat_s1[target_random_idx,:,:,:].transpose((0, 3, 1, 2))).to(device,dtype=torch.float)
             target_dat_2 = torch.from_numpy(target_data.dat_s2[target_random_idx,:,:,:].transpose((0, 3, 1, 2))).to(device,dtype=torch.float)
