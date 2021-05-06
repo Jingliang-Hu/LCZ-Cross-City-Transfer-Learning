@@ -6,7 +6,7 @@ from datetime import datetime
 import torch
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms, utils
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 
 
 
@@ -78,19 +78,19 @@ class LCZDataset(Dataset):
         elif self.dataFlag==0:
             if self.normalization[0]=='pms':
                 print("S1 data: patch-wise mean standard deviation normalization")
-                self.data = patch_mean_Std_Normalization(self.dat_s1)
+                self.dat_s1 = patch_mean_Std_Normalization(self.dat_s1)
             elif self.normalization[0]=='cms':
                 print("S1 data: channel-wise mean standard deviation normalization")
-                self.data = channel_mean_Std_Normalization(self.dat_s1)
+                self.dat_s1 = channel_mean_Std_Normalization(self.dat_s1)
             elif self.normalization[0]=='no':
                 print("S1 data: no normalization is carried out")
 
             if self.normalization[1]=='pms':
                 print("S2 data: patch-wise mean standard deviation normalization")
-                self.data = patch_mean_Std_Normalization(self.dat_s2)
+                self.dat_s2 = patch_mean_Std_Normalization(self.dat_s2)
             elif self.normalization[1]=='cms':
                 print("S2 data: channel-wise mean standard deviation normalization")
-                self.data = channel_mean_Std_Normalization(self.dat_s2)
+                self.dat_s2 = channel_mean_Std_Normalization(self.dat_s2)
             elif self.normalization[1]=='no':
                 print("S2 data: no normalization is carried out")
 
@@ -214,10 +214,10 @@ def lczIterDataSet(envPath,train,test,datFlag,normalization,transform=transforms
 
 
 
-def show_sample(data, label):
-    tmp = data[:,:,1:4]
-    plt.imshow(tmp)
-    plt.title('Label: %d' % (np.argmax(label)))
+#def show_sample(data, label):
+#    tmp = data[:,:,1:4]
+#    plt.imshow(tmp)
+#    plt.title('Label: %d' % (np.argmax(label)))
     
 
 
