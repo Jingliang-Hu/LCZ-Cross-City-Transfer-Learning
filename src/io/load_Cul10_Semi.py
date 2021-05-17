@@ -99,7 +99,7 @@ class LCZDataset(Dataset):
         return self.label.shape[0]
 
     def nbChannel(self):
-        fid = h5py.File(self.dataFile)
+        fid = h5py.File(self.dataFile,'r')
         if self.dataFlag == 1:
             nb_channel = np.array(fid['x_1']).shape[3]
         elif self.dataFlag ==2:
@@ -111,7 +111,7 @@ class LCZDataset(Dataset):
         return nb_channel
 
     def loadData(self):
-        fid = h5py.File(self.dataFile)
+        fid = h5py.File(self.dataFile,'r')
         self.label = np.array(fid['y'])
         if self.dataFlag == 1:
            self.data = np.array(fid['x_1'])
