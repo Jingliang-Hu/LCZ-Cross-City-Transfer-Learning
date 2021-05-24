@@ -110,6 +110,12 @@ class LCZDataset(Dataset):
         del fid
         return nb_channel
 
+    def setData(self,data):
+        self.data = data
+
+    def setLabel(self,label):
+        self.label = label
+
     def loadData(self):
         fid = h5py.File(self.dataFile)
         self.label = np.array(fid['y'])

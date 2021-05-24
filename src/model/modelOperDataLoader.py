@@ -187,6 +187,26 @@ def prediction_4_mapping_gpu(model,data_patches,device):
 
     return pred
 
+def prediction_softmax_gpu(model,data_patches,device):
+    model.eval()
+    model = model.float()
+    model = model.to(device)
+    data_patches = np.transpose(data_patches,(0,3,1,2))
+    pred = np.zeros((data_patches.shape[0],17))
+    batch_num = 100
+    batch_total = np.ceil(data_patches.shape[0]/batch_num)
+    softmax_calculater = nn.Softmax(dim = 1)
+    for i in tqdm(range(batch_total.astype(int))):
+        if i == batch_total-1:
+            data_batch = torch.from_numpy(data_patches[i*batch_num:,:,:,:]).float()
+            output = model(data_batch.to(device))
+            pred[i*batch_num:] = softmax_calculater(output).cpu().detach().numpy()
+        else:
+            data_batch = torch.from_numpy(data_patches[i*batch_num:(i+1)*batch_num,:,:,:]).float()
+            output = model(data_batch.to(device))
+            pred[i*batch_num:(i+1)*batch_num] = softmax_calculater(output).cpu().detach().numpy()
+
+    return pred
 
 
 
