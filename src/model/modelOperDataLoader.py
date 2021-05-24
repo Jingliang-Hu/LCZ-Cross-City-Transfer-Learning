@@ -247,7 +247,10 @@ def test(model,device,valDataLoader,criterion):
     '''
 
     model.eval()
-    nb_class = valDataLoader.dataset.label.shape[1]
+    try:
+        nb_class = valDataLoader.dataset.label.shape[1]
+    except:
+        nb_class = valDataLoader.dataset.dataset.label.shape[1]
     confusion_matrix = np.zeros((nb_class,nb_class))
     
     nb_test_samples = len(valDataLoader.dataset)
@@ -348,6 +351,89 @@ def train(model, device, optimizer, traDataLoader, criterion, numEpoch, valDataL
 
     print(' --- training done --- ')
     return model,traLoss,traArry,valLoss,valArry,valAver
+
+def train_valid_early_stop(model, model_out_dir, device, optimizer, traDataLoader, criterion, numEpoch, valDataLoader, patient=10):
+    '''
+    Input:
+        - model         -- pytorch model
+        - model_out_dir -- directory to save trained model
+        - device        -- defined cpu or gpu device
+        - optimizer     -- optimizer
+        - traDataLoader -- pytorch dataloader for training
+        - criterion     -- objective function for optimization                  (default cross entropy)
+        - numEpoch      -- number of epoch for training                         (default 200)
+        - valDataLoader -- pytorch dataloader for validation data
+        - patient       -- patient number of epochs
+    Output:
+        - model         -- trained pytorch model
+        - traLoss       -- mean loss of batches
+        - traArry       -- training arrucacy for all epoch
+        - valLoss       -- validation loss for all epoch
+        - valArry       -- validation accuracy for all epoch
+    '''
+    model.train()
+    # initialize outputs
+    traLoss = np.zeros((numEpoch))
+    traArry = np.zeros((numEpoch))
+    valLoss = np.zeros((numEpoch))
+    valArry = np.zeros((numEpoch))
+    valAver = np.zeros((numEpoch))
+    print(" ----------------------------------------- ")
+    num_batch = len(traDataLoader)
+    nb_train_sample = len(traDataLoader.dataset)
+    # training
+    for epoch in range(numEpoch):
+        running_loss = 0.0
+        correct = 0.0
+        print("Number of batches (%d in total): " % (num_batch))
+        for i_batch, sample in tqdm(enumerate(traDataLoader)):
+            inDat = sample['data'].to(device,dtype=torch.float)
+            inLab = sample['label'].to(device,dtype=torch.float)
+            inLab = torch.max(inLab,1)[1]
+            # zero the parameter gradients for each minibatch
+            optimizer.zero_grad()
+            # forward
+            outputs = model(inDat)
+            # loss
+            loss = criterion(outputs, inLab)
+            # backward
+            loss.backward()
+            # optimize
+            optimizer.step()
+            # statistics
+            running_loss += loss.item() * inDat.size(0)
+            _, predicted = torch.max(outputs.data, 1)
+            correct += predicted.eq(inLab).sum().item()
+        # training loss and accuracy
+        traLoss[epoch] = running_loss/nb_train_sample
+        traArry[epoch] = correct/nb_train_sample*100
+        # validation loss and accuracy
+        _, valLoss[epoch], valArry[epoch], valAver[epoch] = test(model,device,valDataLoader,criterion)
+        print('epoch %d: training loss: %.4f; training acc: %.2f; validation loss: %.4f; validation acc: %.2f; validation average acc: %.2f' % (epoch+1, traLoss[epoch], traArry[epoch],valLoss[epoch],valArry[epoch],valAver[epoch]))
+        # save the best model
+        model_save_flag = save_best_model_func(model, 1, model_out_dir, epoch, valLoss)
+        if epoch-patient<0:
+            continue
+        elif (valLoss[epoch-patient]<valLoss[epoch-patient+1:epoch+1]).all():
+            print('Early stopping patient (%d) reached' % (patient))
+            break
+    print(' --- training done --- ')
+    return traLoss,traArry,valLoss,valArry,valAver
+
+
+
+
+def save_best_model_func(model, save_best_model, model_dir, epoch, val_loss):
+    if epoch == 0 and save_best_model:
+        torch.save(model.state_dict(), model_dir)
+        print('The model after %d th epoch training has the lowest validation loss and saved' % (epoch+1))        
+        return 1
+    elif val_loss[epoch] < val_loss[:epoch].min() and save_best_model:
+        torch.save(model.state_dict(), model_dir)
+        print('The model after %d th epoch training has the lowest validation loss and saved' % (epoch+1))
+        return 1
+    return 0
+
 
 
 def train_DataAug(model, device, optimizer, traDataLoader, criterion, numEpoch, valDataLoader, aug_flip, aug_noise_std):
@@ -694,7 +780,7 @@ def train_multi_fusion(model, source_data, target_data, optimizers, device, clas
     target_data_loader = torch.utils.data.DataLoader(target_data, batch_size=batch_number, shuffle=True)
 
     # training
-    for epoch in tqdm(range(numEpoch)):
+    for epoch in range(numEpoch):
         print(" ----------------------------------------- ")
         print('Epoch %d:' % (epoch+1))
 
@@ -715,7 +801,7 @@ def train_multi_fusion(model, source_data, target_data, optimizers, device, clas
         nb_batches = np.ceil(nb_samples/batch_number)
         nb_samples_used = (batch_number*nb_batches)
         print("Number of batches (%d in total): " % (nb_batches))
-        for idx in range(nb_batches.astype(np.int)):
+        for idx in tqdm(range(nb_batches.astype(np.int))):
             target_random_idx = random.sample(range(0,nb_test_samples),batch_number)
             target_dat_1 = torch.from_numpy(target_data.dat_s1[target_random_idx,:,:,:].transpose((0, 3, 1, 2))).to(device,dtype=torch.float)
             target_dat_2 = torch.from_numpy(target_data.dat_s2[target_random_idx,:,:,:].transpose((0, 3, 1, 2))).to(device,dtype=torch.float)
