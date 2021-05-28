@@ -9,7 +9,7 @@ import math
 import time
 import data_loader
 import ResNet as models
-from tqdm import tqdm
+#from tqdm import tqdm
 import numpy as np
 
 
@@ -75,7 +75,7 @@ def train(epoch, model):
 
     model.train()
     criterion = torch.nn.CrossEntropyLoss()
-    for i_batch, sample in tqdm(enumerate(zip(source_loader,target_loader))):
+    for i_batch, sample in enumerate(zip(source_loader,target_loader)):
         data_source = sample[0]['data'].to(cudaNow,dtype=torch.float)
         label_source = torch.argmax(sample[0]['label'],dim=1)
         label_source = label_source.to(cudaNow,dtype=torch.long)
@@ -99,7 +99,7 @@ def test(model):
     correct = 0
     criterion = torch.nn.CrossEntropyLoss(reduction='sum')
     with torch.no_grad():
-        for i_batch, sample in tqdm(enumerate(target_loader)):
+        for i_batch, sample in enumerate(target_loader):
             data = sample['data'].to(cudaNow,dtype=torch.float)
             target = torch.argmax(sample['label'],dim=1)
             target = target.to(cudaNow,dtype=torch.long)
@@ -118,7 +118,7 @@ def predict(model):
     criterion = torch.nn.CrossEntropyLoss(reduction='sum')
     confusion_matrix = np.zeros((17,17))
     with torch.no_grad():
-        for i_batch, sample in tqdm(enumerate(target_loader)):
+        for i_batch, sample in enumerate(target_loader):
             data = sample['data'].to(cudaNow,dtype=torch.float)
             target = torch.argmax(sample['label'],dim=1)
             target = target.to(cudaNow,dtype=torch.long)
