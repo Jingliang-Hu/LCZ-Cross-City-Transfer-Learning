@@ -101,11 +101,11 @@ class LCZDataset(Dataset):
     def nbChannel(self):
         fid = h5py.File(self.dataFile,'r')
         if self.dataFlag == 1:
-            nb_channel = np.array(fid['x_1']).shape[3]
+            nb_channel = fid['x_1'].shape[3]
         elif self.dataFlag ==2:
-            nb_channel = np.array(fid['x_2']).shape[3]
+            nb_channel = fid['x_2'].shape[3]
         elif self.dataFlag ==0:
-            nb_channel = [np.array(fid['x_1']).shape[3],np.array(fid['x_2']).shape[3]]
+            nb_channel = [fid['x_1'].shape[3],fid['x_2'].shape[3]]
         fid.close()
         del fid
         return nb_channel
