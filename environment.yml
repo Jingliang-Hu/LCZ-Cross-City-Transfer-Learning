@@ -1,4 +1,4 @@
-name: meanteather
+name: LCZ_TRANSFER
 channels:
   - pytorch
   - conda-forge
