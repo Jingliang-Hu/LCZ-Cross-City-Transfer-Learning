@@ -141,8 +141,8 @@ def predict(model):
 
 
 if __name__ == '__main__':
-    # model_directories = ['amran_tr_lcz42_te_cul10_outcome_2021-05-20_22-32-50','amran_tr_lcz42_te_cul10_outcome_2021-05-23_09-16-29','amran_tr_lcz42_te_cul10_outcome_2021-05-24_14-12-44_sdg','','']
-    model_directories = ['amran_tr_lcz42_te_cul10_outcome_2021-05-24_14-12-44_sdg']
+    # model_directories = ['amran_tr_lcz42_te_cul10_outcome_2021-05-20_22-32-50','amran_tr_lcz42_te_cul10_outcome_2021-05-23_09-16-29','amran_tr_lcz42_te_cul10_outcome_2021-05-29_05-19-35']
+    model_directories = ['amran_tr_lcz42_te_cul10_outcome_2021-05-29_05-19-35']
     for model_name in model_directories:
         print(' ------------------------------------- ')
         modelPath = os.path.join(model_name,'model')

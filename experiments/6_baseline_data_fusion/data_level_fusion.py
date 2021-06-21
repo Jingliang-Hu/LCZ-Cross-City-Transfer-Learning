@@ -37,15 +37,15 @@ paraDict = {
         #"testData": "munich",
 
         "datFlag":0,
-        "normalization_s2":"cms", # "ms": mean-std normalization, patch-wise
+        "normalization_s2":"no", # "ms": mean-std normalization, patch-wise
         "normalization_s1":"no", # "ms": mean-std normalization, patch-wise
 
         ### model name
-        "modelName":'LeNet', # model name
+        "modelName":'LeNet_conv5', # model name
         "nbStreams": 1,
         }
 
-cudaNow = torch.device('cuda:1')
+cudaNow = torch.device('cuda:2')
 
 nbBatch = paraDict["nbBatch"]
 nbEpoch = paraDict["nbEpoch"]
@@ -84,6 +84,9 @@ if modelName=='resnet18':
     model = resnetModel.resnet18(inChannel=np.sum(trainDataSet.nbChannel()), nbClass = trainDataSet.label.shape[1]).to(cudaNow)
 elif modelName=='LeNet':
     model = resnetModel.LeNet(inChannel=np.sum(trainDataSet.nbChannel()), nbClass = trainDataSet.label.shape[1]).to(cudaNow)
+elif modelName=='LeNet_conv5':
+    model = resnetModel.LeNet_conv_5(inChannel=np.sum(trainDataSet.nbChannel()), nbClass = trainDataSet.label.shape[1]).to(cudaNow)
+
 
 
 

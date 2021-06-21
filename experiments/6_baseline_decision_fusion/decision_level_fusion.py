@@ -26,28 +26,28 @@ print("parameter setting...")
 paraDict = {
         ### network parameters
         "nbBatch": 256,
-        #"nbEpoch": 100,
-        "nbEpoch": 1,
+        "nbEpoch": 100,
+        #"nbEpoch": 1,
 
         "learningRate": 1e-4,
 
         ### data loading parameters
-        #"trainData": "lcz42", # training data could be the training data of LCZ42 data, or data of one of the cultural-10 city
-        "trainData": "moscow",
-        #"testData": "cul10",  # testing data could be all the data of the cultural-10 cities, or one of them.
-        "testData": "munich",
+        "trainData": "lcz42", # training data could be the training data of LCZ42 data, or data of one of the cultural-10 city
+        #"trainData": "moscow",
+        "testData": "cul10",  # testing data could be all the data of the cultural-10 cities, or one of them.
+        #"testData": "munich",
         
         "datFlag":0,
-        "normalization_s2":"cms", # "ms": mean-std normalization, patch-wise
+        "normalization_s2":"no", # "ms": mean-std normalization, patch-wise
         "normalization_s1":"no", # "ms": mean-std normalization, patch-wise
 
         
         ### model name
-        "modelName":'LeNet', # model name
+        "modelName":'LeNet_conv5', # model name
         "nbStreams": 1,
         }
 
-cudaNow = torch.device('cuda:1')
+cudaNow = torch.device('cuda:2')
 
 nbBatch = paraDict["nbBatch"]
 nbEpoch = paraDict["nbEpoch"]
