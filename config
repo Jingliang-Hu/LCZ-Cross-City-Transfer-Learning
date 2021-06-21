@@ -2,7 +2,7 @@
 export PATH=/home/hu/software/anaconda3.7/bin:$PATH
 
 # activate a conda env 'meanteather' for development
-source activate meanteather
+source activate LCZ_TRANSFER
 
 # deactivate env
 # conda deactivate
