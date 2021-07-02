@@ -1,3 +1,10 @@
+# Re-run
+Example with upper boundary.
+```bash
+cd 0_upper_boundary
+python baseline_upper_bound.py
+```
+
 # Introduction
 This folder contains all implemented algorithms in the paper.
 * 0_upper_boundary
