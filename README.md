@@ -11,7 +11,7 @@ In file ".envPath", replace "/directory-to-current-folder" with the directory of
 ## 3: Create the conda env
 ```bash
 conda env create -f environment.yml #Create env from yml file
-conda activate environment.yml #activate the conda env
+conda activate LCZ_TRANSFER #activate the conda env
 ```
 
 
