@@ -1,11 +1,16 @@
-# Re-run
+# Experiments
+## Parameter setting
+In each script, parameters are saved in "paraDict".
+## Re-run
 Example with upper boundary.
 ```bash
 cd 0_upper_boundary
 python baseline_upper_bound.py
 ```
+## Output
+Each run will create a folder whose name has main parameters and a time stamp. Values of "paraDict" would also be saved in the folder.
 
-# Introduction
+# Description
 This folder contains all implemented algorithms in the paper.
 * 0_upper_boundary
   - A practical demonstration of the upper boundary for transfer learning methods. A baseline model trained and tested with samples from the target domain
