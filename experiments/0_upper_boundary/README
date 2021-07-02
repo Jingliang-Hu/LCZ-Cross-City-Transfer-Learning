@@ -1,2 +1,0 @@
-The experiments of upper boundary trains a baseline model with 70% labels of target domain and tests the model with 30%. 
-This is to show the best accuracy that can be achieved in the target domain
