@@ -17,7 +17,7 @@ conda activate LCZ_TRANSFER #activate the conda env
 ## Data
 The folder stores data for all experiments
 ## Experiments
-This folder includes scripts that run the algorithms shown in the paper
+This folder includes scripts that run the algorithms shown in the paper. To re-run our experiments, please checkout this folder.
 ## SRC
 This folder contains python libs that support the experiments
 ## Prediction
