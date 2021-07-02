@@ -8,7 +8,7 @@ In file ".envPath", replace "/directory-to-current-folder" with the directory of
 ## 2. Install conda 
 [Please refer to the anaconda documentation](https://docs.anaconda.com/anaconda/install/)
 
-## 3: Create the conda env
+## 3. Create the conda env
 ```bash
 conda env create -f environment.yml #Create env from yml file
 conda activate LCZ_TRANSFER #activate the conda env
