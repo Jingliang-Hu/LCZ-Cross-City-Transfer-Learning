@@ -24,7 +24,7 @@ print("parameter setting...")
 paraDict = {
         ### network parameters
         "nbBatch": 256,
-        "nbEpoch": 100,
+        "nbEpoch": 1,
         "learningRate": 1e-4,
 
         ### data loading parameters
@@ -35,8 +35,8 @@ paraDict = {
         "datFlag":2, # data selection: sentinel-1, sentinel-2, or both
 
         ### model name
-        #"modelName":'LeNet_conv5',
-        "modelName":'ResNet',
+        "modelName":'LeNet_conv5',
+        #"modelName":'ResNet',
         # "modelName":'LeNet', # model name
         # "modelName":'Sen2LCZ',#'LeNet', # model name
         # "Sen2LCZ_drop_out": 0.2,
