@@ -1,7 +1,7 @@
 # Introduction
-Our network structure
+##Our network structure
 ![network](https://github.com/Jingliang-Hu/LCZ-Cross-City-Transfer-Learning/blob/master/src/figure1.JPG)
-Classification maps
+##Classification maps
 ![Classification](https://github.com/Jingliang-Hu/LCZ-Cross-City-Transfer-Learning/blob/master/src/figure5.JPG)
 
 # Environment setting
