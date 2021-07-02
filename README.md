@@ -13,6 +13,17 @@ In file ".envPath", replace "/directory-to-current-folder" with the directory of
 conda env create -f environment.yml #Create env from yml file
 conda activate LCZ_TRANSFER #activate the conda env
 ```
+# File descriptions
+## Data
+The folder stores data for all experiments
+## Experiments
+This folder includes scripts that run the algorithms shown in the paper
+## SRC
+This folder contains python libs that support the experiments
+## Prediction
+
+## Experiments_results.xlsx
+This excel shows all experiments results that we report in the paper
 
 
 
