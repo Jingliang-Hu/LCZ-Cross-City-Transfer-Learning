@@ -3,7 +3,7 @@ Updating soon
 
 # Environment setting
 ## 1. Set the env path
-In ".envPath" folder, replace "/directory-to-current-folder" with the directory where the repo is cloned. For example, "/user/project/LCZ-Cross-City-Transfer-Learning"
+In file ".envPath", replace "/directory-to-current-folder" with the directory of this folder. For example, "/user/project/LCZ-Cross-City-Transfer-Learning"
 
 ## 2. Install conda 
 [Please refer to the anaconda documentation](https://docs.anaconda.com/anaconda/install/)
