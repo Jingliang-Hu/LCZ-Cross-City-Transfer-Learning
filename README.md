@@ -21,7 +21,7 @@ This folder includes scripts that run the algorithms shown in the paper. To re-r
 ## SRC
 This folder contains python libs that support the experiments
 ## Prediction
-
+This folder contains scripts that produce classification maps
 ## Experiments_results.xlsx
 This excel shows all experiments results that we report in the paper
 
