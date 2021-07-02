@@ -7,8 +7,12 @@ Scripts in this folder produce classification maps
 - 1_prediction_resnet.py  
   - This script predict LCZ labels with Networks that have ResNet as backbone
 - 2_produce_map.py
-  - 
-- 2_produce_map_resnet.py             
+  - This script produces LCZ maps
+- 2_produce_map_resnet.py        
+  - This script produces LCZ maps
 - inferencing_time_analysis.py
+  - This script records time spent for inferencing
 - inferencing_time_analysis_amran.py  
+  - This script records time spent for inferencing, for AMRAN
 - LCZ_mapping.py
+  - A lib with mapping related functions
