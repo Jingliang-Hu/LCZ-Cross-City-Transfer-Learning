@@ -5,7 +5,7 @@ Updating soon
 ## 1. Set the env path
 In file ".envPath", replace "/directory-to-current-folder" with the directory of this folder. For example, "/user/project/LCZ-Cross-City-Transfer-Learning"
 
-## 2. Install conda 
+## 2. Install conda (conda 4.10.1, where the codes are tested)
 [Please refer to the anaconda documentation](https://docs.anaconda.com/anaconda/install/)
 
 ## 3. Create the conda env
