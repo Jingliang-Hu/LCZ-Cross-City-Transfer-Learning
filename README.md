@@ -1,9 +1,11 @@
 # Introduction
+Coming soon
+<!--- 
 ## Our network structure
 ![network](https://github.com/Jingliang-Hu/LCZ-Cross-City-Transfer-Learning/blob/master/src/figure1.JPG)
 ## Classification maps
 ![Classification](https://github.com/Jingliang-Hu/LCZ-Cross-City-Transfer-Learning/blob/master/src/figure5.JPG)
-
+--->
 # Environment setting
 ## 1. Set the env path
 In file ".envPath", replace "/directory-to-current-folder" with the directory of this folder. For example, "/user/project/LCZ-Cross-City-Transfer-Learning"
