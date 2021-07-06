@@ -34,3 +34,5 @@ This folder contains all implemented algorithms in the paper.
 * 101_baseline_feature_fusion
 * 101_our_fusion
 
+
+The "prediction.py" scripts calculate the evalutation metrics using samples from the target domain.
