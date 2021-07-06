@@ -14,5 +14,3 @@ Scripts in this folder produce classification maps
   - This script records time spent for inferencing
 - inferencing_time_analysis_amran.py  
   - This script records time spent for inferencing, for AMRAN
-- LCZ_mapping.py
-  - A lib with mapping related functions
